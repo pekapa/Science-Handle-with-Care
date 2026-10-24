@@ -68,15 +68,29 @@ temporary configuration, mods and saves. Never use the player's normal mod folde
 write-data path or save. A timeout, engine error, missing binary or missing final
 assertion is a failure. Preserve logs for diagnosis.
 
+## Development showcase
+
+`FACTORIO_BIN=/absolute/path/to/factorio python3 scripts/create_showcase.py`
+generates `build/showcase/science-showcase.zip` using isolated config, mods,
+write-data and server settings. It only terminates its own server process. The
+scenario asserts actual mixed-beaker transport, pickup wear, power and native
+research progress, saves, then independently reloads and asserts further research.
+It verifies that only base and the production mod are active. The generated save,
+logs and scenario sources are excluded from the production package.
+
+This automated showcase validation is not a graphical manual playtest. For that
+check, install the built ZIP in a test profile, load the showcase, inspect status
+and tooltips, change delivery timing, move wrong mixtures, and mine/rebuild while
+checking items and credit. Keep personal saves separate.
+
 ## Layers and their limits
 
 | Layer | Evidence | Does not establish |
 | --- | --- | --- |
 | Pure Lua | Composition identity, invalid input rejection, wear boundaries and encoding | Entity events, hand behavior or native research |
 | Package checks | Manifest, source contents, license and archive integrity | A playable mod or engine load success |
-| Engine smoke | Packaged helpers run in Factorio; actual fixture-item transport preserves state | Production pickup/mixer/lab behavior before those features exist |
-| Gameplay scenarios (next milestone) | Production features interacting with real machines | Manual usability or untested compatibility |
-| Manual playable scenario (next milestone) | Readable status, setup, interactions and understandable failures | Automated regression coverage |
+| Production engine scenarios | Packaged mixing, pickup wear, native research and real save/reload with actual machines | Manual usability or untested compatibility |
+| Manual playable scenario (outstanding) | Readable status, setup, interactions and understandable failures | Automated regression coverage |
 
 Earlier engine experiments are engineering evidence, not the maintained regression
 suite. Port the smallest relevant case into `tests/integration/` when implementing
@@ -88,11 +102,11 @@ they must not reimplement the behavior under test and claim production coverage.
 | Scenario | Observable assertions |
 | --- | --- |
 | Recipe-free mixing | Red, green and red+green all producible; delivered ingredients determine output; unused mix remains valid |
-| Mixing window and blockage | Correct boundary ticks; blocked output neither loses ingredients nor duplicates output; bounded buffering |
+| Immediate start and blockage | Correct boundary ticks; blocked output neither loses ingredients nor duplicates output; bounded buffering |
 | Pickup and stalled delivery | One wear charge per pickup; hundreds of held ticks add no charges; next pickup charges again |
-| Wear failure | Ten survives, eleven converts under proposed tuning; count conserved; waste stacks and has no further wear |
-| Lab admission and buffering | Buffers may hold multiple beakers; admission commits a valid composition; health rounds downward only after valid admission; physical inventory and stored credit are conserved |
-| Native research | Expected count/time; local cached credit consumed once; another same-force lab cannot corrupt this lab's admission or stored credit |
+| Wear failure | Ten survives, eleven converts; count conserved; waste stacks and has no further wear |
+| Lab admission and buffering | Wrong mixtures wait unused and removable; only matching composition is consumed; physical inventory and stored credit are conserved |
+| Native research | Expected count/time; local cached credit consumed once; another same-force lab cannot corrupt this lab's stored credit |
 | Persistence and power | Actual save/reload mid-hand and mid-credit; no double charge/lost credit; unpowered worker retains credit |
 | Lifecycle | Mining/destruction/rebuild and research changes do not orphan workers, duplicate items or lose credited research silently |
 
@@ -135,4 +149,4 @@ compatibility change. Exact-version local runs provide reproducible regressions.
 
 Before a playable release, require the gameplay scenario matrix, a real reload
 test, installation from the built ZIP and a manual starter-layout playtest. No
-release or mod-portal upload is automatic in this foundation.
+release or mod-portal upload is automatic.

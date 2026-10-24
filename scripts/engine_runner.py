@@ -94,17 +94,39 @@ def main():
             mods / "science-validation-fixture_0.1.0",
         )
         manifest = validate_manifest()
-        (mods / "mod-list.json").write_text(
-            json.dumps(
-                {
-                    "mods": [
-                        {"name": name, "enabled": True}
-                        for name in ("base", manifest["name"], "science-validation-fixture")
-                    ]
-                }
-            ),
-            encoding="utf-8",
+        shutil.copytree(
+            ROOT / "tests/integration/bootstrap-fixture",
+            mods / "science-bootstrap-fixture_0.1.0",
         )
+
+        def select_mods(gameplay):
+            enabled = (
+                {"base", manifest["name"], "science-validation-fixture"}
+                if gameplay
+                else {"base", "science-bootstrap-fixture"}
+            )
+            (mods / "mod-list.json").write_text(
+                json.dumps(
+                    {
+                        "mods": [
+                            {"name": name, "enabled": name in enabled}
+                            for name in (
+                                "base",
+                                manifest["name"],
+                                "science-validation-fixture",
+                                "science-bootstrap-fixture",
+                                "space-age",
+                                "quality",
+                                "elevated-rails",
+                                "recycler",
+                            )
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+        select_mods(False)
         common = [binary, "--config", str(config), "--mod-directory", str(mods)]
         version = run(common + ["--version"], results / "version.log", args.timeout)
         actual = validate_version(version, args.target)
@@ -122,20 +144,34 @@ def main():
             + "\n",
             encoding="utf-8",
         )
-        run(common + ["--create", str(save)], results / "create.log", args.timeout)
+        run(
+            common + ["--create", str(save), "--map-gen-seed", "12345"],
+            results / "create.log",
+            args.timeout,
+        )
+        select_mods(True)
+        checkpoint = run(
+            common + ["--load-game", str(save), "--until-tick", "121"],
+            results / "checkpoint.log",
+            args.timeout,
+        )
+        if "SCIENCE_VALIDATION_CHECKPOINT PASS" not in checkpoint:
+            raise RuntimeError("Missing checkpoint assertion; see checkpoint.log")
         output = run(
             common
             + [
                 "--benchmark",
                 str(save),
                 "--benchmark-ticks",
-                "660",
+                "1100",
                 "--benchmark-runs",
                 "1",
             ],
             results / "benchmark.log",
             args.timeout,
         )
+        if "SCIENCE_VALIDATION_RESUMED PASS" not in output:
+            raise RuntimeError("Missing reload assertion; see benchmark.log")
         validate_completion(output)
     print(f"Engine fixture passed; logs: {results}")
 
