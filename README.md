@@ -16,7 +16,9 @@ much handling ruins it.
 
 The mod is an early red/green prototype. It implements mixing, pickup wear and
 native research, with isolated engine regressions including actual save/reload.
-It has not completed a graphical manual playtest and is not a published release.
+Basic setup and the transport line have been manually inspected. The revised
+lab and machine interfaces still need graphical manual verification; this is not
+a published release.
 Space Age, quality and overhaul compatibility are outside this demonstration.
 
 Development is deliberately unstable: gameplay, code, identifiers and saved state
@@ -31,33 +33,38 @@ Install that ZIP using your Factorio test profile's mods directory and enable
 The configured engine series is Factorio 2.1; consult the
 [testing guide](docs/testing.md) for evidence and limitations.
 
-Research green science to unlock the **Science mixer** and **Beaker lab** recipes.
-Each machine is crafted from its base-game counterpart and five electronic circuits.
-Single-science research still uses ordinary packs. Technologies requiring equal
-amounts of only red and green science instead consume red+green beakers, keeping
-their original research count and time. Use the Beaker lab for these technologies;
-ordinary labs cannot consume mixed beakers. Later science combinations remain conventional.
+Build the ordinary **Lab** using its normal recipe and early-game availability.
+The mod gives it one physical science input slot and support for mixed science.
+Research green science to unlock the **Science mixer**, crafted from an assembling
+machine and five electronic circuits. Single-science research uses ordinary packs.
+Technologies requiring equal amounts of only red and green science instead consume
+red+green beakers, keeping their original research count and time. Later science
+combinations remain conventional.
 
 An idle powered mixer starts immediately when any supported pack is present. It
 consumes one of each type present and takes one second of powered processing.
 To make red+green, coordinate delivery before the mixer starts, or disable it with
 a circuit condition while loading. Later arrivals belong to the next craft.
-Red-only and green-only beakers are valid outputs even when no research uses them.
+Red alone returns the same ordinary red pack; green alone returns the same ordinary
+green pack. Both still take the full second. Only red+green produces a fragile beaker.
 Raw packs may buffer in two native input slots (up to 400 packs total; either
-type can occupy both slots). Each mixture has one output
+type can occupy both slots). Red, green and red+green each have one output
 slot; a blocked completed craft waits without consuming more inputs.
 
-Usable beakers do not stack. Ordinary/burner pickups cost 1 handling point,
-long-handed/fast cost 2, and bulk/stack cost 4. Ten points survive; the next point
-turns the beaker into stackable denatured science. Belts and splitters add no wear;
-blocked holding adds no repeated charge. Health drops 6.25 percentage points per
-handling point; 37.5% is the last safe level. Manual moves
-and bots currently add no scripted charge; broader transport rules remain open.
-Wrong mixtures can wait unused in a Beaker lab until matching research uses them,
-or you remove them. Mining returns unfinished mixer ingredients and recovers
-fractional stored lab credit as a partially used science item. Recovered committed
-beaker credit has its handling allowance rounded down to zero, so another inserter
-pickup denatures it; move it manually if you want to reuse it.
+Usable mixed beakers do not stack. Ordinary/burner pickups cost 1 handling point,
+long-handed/fast cost 2, and bulk/stack cost 4. Fresh health is 100%; each point
+removes 10 percentage points. Nine points survive at 10% health; ten points turn
+the beaker into stackable denatured science. Belts and splitters add no wear;
+blocked holding adds no repeated charge. Ordinary single-science packs receive no
+scripted wear. Manual moves and bots currently add no scripted charge; broader
+transport rules remain open.
+
+A lab has one physical science slot. A wrong mixture occupies it until removed,
+blocking delivery of the right science. Matching science becomes native research
+credit; credit already admitted survives research changes, power loss and reload.
+Mining returns unfinished mixer ingredients and stores remaining lab credit in the
+mined Lab item's tags. Rebuilding that item restores its credit, including fractional
+ordinary-pack credit; it does not create fresh packs.
 
 For a supplied development layout, generate a separate showcase save:
 
@@ -65,15 +72,24 @@ For a supplied development layout, generate a separate showcase save:
 FACTORIO_BIN=/absolute/path/to/factorio python3 scripts/create_showcase.py
 ```
 
-Load `build/showcase/science-showcase.zip` with the production mod enabled and
-bundled optional mods disabled. It provides synchronized red/green input arms,
+For a graphical Factorio binary, generation writes a launcher for the fresh
+isolated profile:
+
+```sh
+sh build/showcase/launch.sh
+```
+
+Use that launcher to open the new showcase; older test profiles retain their
+previous mod ZIP. You can also load `build/showcase/science-showcase.zip` with the
+production mod enabled and bundled optional mods disabled. It provides synchronized red/green input arms,
 power, mixed-science research and supplies when you join. The scenario and save
 are development material, excluded from the distributed ZIP. Generator logs and
 independent reload assertions remain under `build/showcase/`.
 
 ## Contribute
 
-Start with [CONTRIBUTING.md](CONTRIBUTING.md). The
+Start with [CONTRIBUTING.md](CONTRIBUTING.md) and the beginner-friendly
+[code reading guide](docs/code-guide.md). The
 [design](DESIGN.md) explains the intended experience,
 [decisions](docs/decisions.md) distinguish settled rules from tuning, and the
 [roadmap](docs/roadmap.md) identifies the next playable milestone.

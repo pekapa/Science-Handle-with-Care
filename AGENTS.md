@@ -26,10 +26,14 @@ into maintained tests that exercise production code.
 - No player-selected mixer recipe. At crafting start, consume one pack of each
   science type present to determine output. Prefer minimal raw-pack buffering;
   allow buffering when needed for a practical implementation.
-- One visible placed lab. Admitted valid beakers may buffer for continuous research;
-  their health may round downward once committed to consumption. Native research
-  and stored science credit remain authoritative. Do not require a shared
-  one-physical-beaker cap or a hidden worker without a concrete need.
+- One visible placed Lab with exactly one physical science input slot. Wrong
+  science blocks that slot until removed. Matching input becomes native research
+  credit; committed health may round downward. A persistent hidden native worker
+  supplies research, power and modules because native lab inventories cannot enforce
+  the shared untyped slot. Preserve credit through mining in the Lab item tags.
+- Single-science mixer output is the same ordinary pack after 60 powered ticks.
+  Only combined science is fragile: fresh health is 100%, nine wear points leave
+  10%, and ten points denature it.
 - Wear is charged once at pickup, including blocked delivery and save/reload.
   Denatured science stacks and receives no additional wear.
 - Do not claim the foundation is playable or promise untested compatibility.

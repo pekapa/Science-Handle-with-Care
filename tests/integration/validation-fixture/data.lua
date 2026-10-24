@@ -29,3 +29,21 @@ for _, name in ipairs({ "science-validation-credit", "science-validation-raw" })
     },
   })
 end
+
+data:extend({
+  {
+    type = "technology",
+    name = "science-validation-conventional",
+    icon = "__base__/graphics/technology/automation.png",
+    icon_size = 256,
+    unit = {
+      count = 1,
+      time = 1,
+      ingredients = {
+        { "automation-science-pack", 1 },
+        { "logistic-science-pack", 1 },
+        { "chemical-science-pack", 1 },
+      },
+    },
+  },
+})

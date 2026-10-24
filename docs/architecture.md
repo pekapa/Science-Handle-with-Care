@@ -38,18 +38,26 @@ version must still preserve items and research credit.
 Generate mixture prototypes in the data stage. At crafting start, runtime samples
 present input types and consumes one ordinary pack of each type to determine the
 output. Later deliveries do not alter that craft. Every nonempty supported subset
-must exist, including unused mixtures. Keep subset generation separate from the
+must be producible, including unused mixtures. Single-type outputs keep the
+ordinary science item; only combined outputs are fragile beakers. Keep subset generation separate from the
 combinations research can consume, and identifiers stable across load ordering.
 
 The mixer is a fixed-recipe assembling-machine shell with native separate input
 and output inventories. The internal recipe supplies inventory filters only;
-native crafting is disabled, and runtime owns sampling and processing. Never set
-native `crafting_progress`: the engine would refund the intake recipe on mining,
-duplicating script-owned materials. Two input slots allow up to 400 raw packs total,
-with either type able to occupy both, as the practical buffering fallback. Output has one filtered slot per mixture.
-One additional craft may wait for its mixture's blocked slot; no further inputs
-are consumed until that output fits. Processing costs 60 powered ticks, 90 kW plus
-3 kW drain, and circuit disable pauses it. These are initial prototype defaults.
+native crafting is disabled, and runtime owns sampling and processing. Runtime
+sets native `crafting_progress` to expose the actual 60-powered-tick craft cycle.
+The prototype sets `return_ingredients_on_change = false`: without it, the engine
+would refund the internal intake recipe when mining a progressing shell and
+duplicate script-owned ingredients. Runtime returns committed inputs itself.
+Two input slots allow up to 400 raw packs total, with either type able to occupy
+both. Three output slots accept ordinary red, ordinary green and combined beakers.
+A completed blocked craft waits without consuming additional ingredients.
+Processing costs 90 kW plus 3 kW drain; circuit disable pauses it.
+
+The custom machine interface binds directly to real native inventory slots and
+reads native progress. Internal recipe controls and typed filter ghosts are hidden
+from that interface. Inventory movement must keep Factorio's native semantics;
+GUI code must not simulate transfers with copied stacks.
 
 Use `storage` for serializable persistent state; local tables are caches only.
 Rebuild local references in `on_load` without mutating game state. Handle entity
@@ -64,36 +72,59 @@ Pickup tracking must charge once even when delivery is blocked or a save is relo
 
 ## Lab boundary
 
-Expose one persistent native lab. Its input allowlist includes ordinary science
-and all three beakers. Wrong mixtures can wait removable and unconsumed; native
-technology ingredients decide which item is consumed. No intake gate or hidden
-worker is used. The prototype retains native lab slots, power and modules.
+The ordinary `lab` item and placed entity retain their base identifiers, recipe
+and availability. The visible entity is a one-slot container intake, paired with a
+persistent invisible, collision-free native lab worker. This worker is necessary
+because native lab inventories cannot enforce one shared untyped physical slot.
+The worker supplies native power, modules, research timing and stored credit.
+Its physical science input remains empty.
+
+Admission checks the selected technology against the actual intake stack. Wrong
+science remains removable and blocks that one slot. Matching ordinary science adds
+one unit of native credit; matching combined science adds the Tool's remaining
+durability. No script increments force research progress. Previously admitted
+credit remains on the worker through research changes, power pauses and reload.
 
 The final data stage converts only technologies using equal quantities of exactly
-red and green science to combined beakers. Unit count and time are retained.
-Single-science and later combinations remain conventional. Mixer and lab recipes
-unlock with the existing green-science technology.
+red and green science. Unit count and time remain unchanged. Single-science and
+later combinations remain conventional. Only the mixer recipe unlocks with green
+science. Superseded separate beaker-lab and singleton-beaker identifiers are removed;
+development versions do not need aliases or migrations.
 
-Beakers committed to consumption inside the lab may round downward in health.
-Outside the lab, individual wear must survive transport and cannot be averaged
-away. An empty input inventory does not prove a worker has no science credit;
-force-wide research progress cannot substitute for its own stored credit. Preserve
-items and credit on research changes, power interruption, removal and reload.
+Health records handling wear; durability records research value. Admitted beakers
+may round downward in health, but transport cannot average individual wear away.
+An empty science inventory does not prove a worker has no credit, and force-wide
+research progress cannot identify its local balance.
 
-On removal, recover stored native credit as a partially used Tool, independently
-of physical input inventory. Keep its fractional durability. Native stored credit
-does not retain health, so recovered beaker credit receives the conservative
-maximum surviving wear of ten, rather than refreshing its handling allowance; force-wide progress
-cannot represent that local balance. Any future technical entities need a defined
-shared lifecycle, with no orphaning, duplication or silent loss.
+On mining, retain all native credit in the mined `lab` item's tags and restore it
+on placement. Raw science packs are Items, so fractional raw credit cannot be
+returned as partially used packs. Preserve physical input and modules separately
+using native inventory returns. The visible intake and worker share lifecycle
+handling: removal must not orphan a worker, duplicate credit or silently discard
+items. Persist references and balances in `storage`, including across real reload.
+
+## Removal integration limits
+
+Normal player and robot mining supplies the actual mining-result buffer, allowing
+credit to travel with one returned Lab item. Raised death and destruction paths
+recover available physical items and native credit before deleting the worker.
+
+External scripts calling `LuaEntity.mine` with `raise_destroyed=true` expose a
+destruction event without the mining-result buffer. That route cannot be reliably
+distinguished from destruction and is outside the current integration contract
+for credited Labs. Other mods must not assume this programmatic mining path is
+compatible. Direct deletion of the hidden worker without raising events also makes
+its native credit inaccessible; the visible intake is retained as unavailable,
+not reported as a successful recovery. No general other-mod lifecycle compatibility
+is claimed.
 
 ## First playable slices
 
-1. **Mixtures:** red, green and red+green items; crafting-start sampling, one pack
+1. **Mixtures:** ordinary red/green pass-through and fragile red+green; crafting-start sampling, one pack
    per present type, explicit start and buffering policy, and blocked-output behavior.
 2. **Handling:** once-per-pickup wear through real transport and reload; stackable
    waste without further wear. Starting costs and budget are tuning, not proof of balance.
-3. **Research:** valid admission and buffering through one visible lab; native
+3. **Research:** matching admission through one physical input slot; native
    research and stored credit preserved through pauses, changes and reloads.
 4. **Playable scenario:** readable status/tooltips, starter layout, removal and
    rebuilding, and a manual playtest alongside automated regressions.

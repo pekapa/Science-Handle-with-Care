@@ -1,19 +1,18 @@
 local mixtures = {
   packs = { "automation-science-pack", "logistic-science-pack" },
-  items = { "shwc-beaker-red", "shwc-beaker-green", "shwc-beaker-red-green" },
+  beaker = "shwc-beaker-red-green",
 }
+mixtures.outputs = { mixtures.packs[1], mixtures.packs[2], mixtures.beaker }
 
 function mixtures.output(red, green)
-  return mixtures.items[(red and 1 or 0) + (green and 2 or 0)]
+  if red and green then
+    return mixtures.beaker
+  end
+  return red and mixtures.packs[1] or green and mixtures.packs[2] or nil
 end
 
 function mixtures.is_beaker(name)
-  for _, item in ipairs(mixtures.items) do
-    if name == item then
-      return true
-    end
-  end
-  return false
+  return name == mixtures.beaker
 end
 
 return mixtures

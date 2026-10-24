@@ -238,7 +238,7 @@ def main():
                 "--benchmark",
                 str(checkpoint),
                 "--benchmark-ticks",
-                "1100",
+                "2300",
                 "--benchmark-runs",
                 "1",
             ],

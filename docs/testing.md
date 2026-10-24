@@ -71,17 +71,24 @@ assertion is a failure. Preserve logs for diagnosis.
 ## Development showcase
 
 `FACTORIO_BIN=/absolute/path/to/factorio python3 scripts/create_showcase.py`
-generates `build/showcase/science-showcase.zip` using isolated config, mods,
-write-data and server settings. It only terminates its own server process. The
+generates `build/showcase/science-showcase.zip` using a fresh isolated profile,
+mods, write-data and server settings. For a graphical binary it also writes
+`build/showcase/launch.sh`; run that launcher to use the new profile. Existing
+profiles are left untouched. It only terminates its own server process. The
 scenario asserts actual mixed-beaker transport, pickup wear, power and native
 research progress, saves, then independently reloads and asserts further research.
 It verifies that only base and the production mod are active. The generated save,
 logs and scenario sources are excluded from the production package.
 
-This automated showcase validation is not a graphical manual playtest. For that
-check, install the built ZIP in a test profile, load the showcase, inspect status
-and tooltips, change delivery timing, move wrong mixtures, and mine/rebuild while
-checking items and credit. Keep personal saves separate.
+This automated showcase validation is not a graphical manual playtest. Basic
+setup and the transport line have been manually inspected; the revised single-slot
+Lab and custom interfaces still need graphical verification. Follow the reproducible
+[manual playtest checklist](manual-playtest.md) with the installed ZIP. Keep
+personal saves separate. The revised local Factorio 2.1.23 suite exercises genuine
+robot mining/reconstruction, credit tags, unchanged three-science research and
+stacked or already-tagged Labs in the intake. GUI appearance and player transfers
+are not established by those headless assertions. Check the current PR results
+for stable and experimental CI evidence.
 
 ## Layers and their limits
 
@@ -90,7 +97,7 @@ checking items and credit. Keep personal saves separate.
 | Pure Lua | Composition identity, invalid input rejection, wear boundaries and encoding | Entity events, hand behavior or native research |
 | Package checks | Manifest, source contents, license and archive integrity | A playable mod or engine load success |
 | Production engine scenarios | Packaged mixing, pickup wear, native research and real save/reload with actual machines | Manual usability or untested compatibility |
-| Manual playable scenario (outstanding) | Readable status, setup, interactions and understandable failures | Automated regression coverage |
+| Manual revised interfaces (outstanding) | Readable status, setup, interactions and understandable failures | Automated regression coverage |
 
 Earlier engine experiments are engineering evidence, not the maintained regression
 suite. Port the smallest relevant case into `tests/integration/` when implementing
@@ -101,14 +108,15 @@ they must not reimplement the behavior under test and claim production coverage.
 
 | Scenario | Observable assertions |
 | --- | --- |
-| Recipe-free mixing | Red, green and red+green all producible; delivered ingredients determine output; unused mix remains valid |
+| Recipe-free mixing | Red/green return the same ordinary pack after 60 powered ticks; red+green produces a fragile beaker; start-time ingredients determine output |
 | Immediate start and blockage | Correct boundary ticks; blocked output neither loses ingredients nor duplicates output; bounded buffering |
 | Pickup and stalled delivery | One wear charge per pickup; hundreds of held ticks add no charges; next pickup charges again |
-| Wear failure | Ten survives, eleven converts; count conserved; waste stacks and has no further wear |
-| Lab admission and buffering | Wrong mixtures wait unused and removable; only matching composition is consumed; physical inventory and stored credit are conserved |
+| Wear failure | Nine survives at 10% health, ten converts; count conserved; waste stacks and has no further wear |
+| Single-slot lab admission | Exactly one physical input slot; wrong science blocks until removed; matching science becomes credit; worker physical science input stays empty |
+| Machine interface | Native inventory widgets preserve stack metadata, cursor and shift-transfer behavior; mixer progress follows the actual powered craft |
 | Native research | Expected count/time; local cached credit consumed once; another same-force lab cannot corrupt this lab's stored credit |
 | Persistence and power | Actual save/reload mid-hand and mid-credit; no double charge/lost credit; unpowered worker retains credit |
-| Lifecycle | Mining/destruction/rebuild and research changes do not orphan workers, duplicate items or lose credited research silently |
+| Lifecycle | Mining/rebuild preserves raw and mixed fractional credit in Lab item tags, input and modules; research changes/removal do not orphan workers or duplicate credit |
 
 Reload means serialize a real save, stop that owned test process, and launch a
 second process from the save. Calling `on_load` manually or keeping a Lua table

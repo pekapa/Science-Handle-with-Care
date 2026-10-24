@@ -1,7 +1,7 @@
 local mixtures = require("__science-handle-with-care__/shared/mixtures")
 local wear = require("__science-handle-with-care__/shared/wear")
 local checkpoint_tick = 120
-local finish_tick = 1200
+local finish_tick = 2400
 
 local function spawn(name, x, y, direction)
   local entity = storage.fixture.surface.create_entity({
@@ -13,6 +13,28 @@ local function spawn(name, x, y, direction)
   })
   assert(entity, "fixture could not create " .. name)
   return entity
+end
+
+-- Observe the actual production worker; fixture code never admits science.
+local function worker(shell)
+  return assert(
+    shell.surface.find_entities_filtered({
+      name = "shwc-lab-worker",
+      position = shell.position,
+      radius = 0.1,
+    })[1],
+    "native worker missing"
+  )
+end
+local function salvage_lab(shell, inventory)
+  local surface, position = shell.surface, shell.position
+  shell.destroy({ raise_destroy = true })
+  for _, dropped in
+    pairs(surface.find_entities_filtered({ type = "item-entity", position = position, radius = 3 }))
+  do
+    assert(inventory.insert(dropped.stack) == dropped.stack.count, "salvage inventory full")
+    dropped.destroy()
+  end
 end
 
 local function power(x, y)
@@ -52,7 +74,7 @@ local function arm_case(name, x, initial, item)
     arm.insert({ name = "coal", count = 10 })
   end
   local stack = source.get_inventory(defines.inventory.chest)[1]
-  stack.set_stack({ name = item or mixtures.items[3], count = 1 })
+  stack.set_stack({ name = item or mixtures.beaker, count = 1 })
   stack.health = wear.to_health(initial)
   return {
     source = source,
@@ -70,6 +92,28 @@ script.on_init(function()
       name == "base" or name == "science-handle-with-care" or name == "science-validation-fixture",
       "unexpected enabled mod: " .. name
     )
+  end
+  assert(not prototypes.entity["shwc-lab"], "separate beaker lab still exists")
+  assert(
+    not prototypes.item["shwc-beaker-red"] and not prototypes.item["shwc-beaker-green"],
+    "single-science fragile prototypes still exist"
+  )
+  local lab_recipe = game.forces.player.recipes.lab
+  local ingredients = {}
+  for _, ingredient in pairs(lab_recipe.ingredients) do
+    ingredients[ingredient.name] = ingredient.amount
+  end
+  assert(
+    ingredients["electronic-circuit"] == 10
+      and ingredients["iron-gear-wheel"] == 10
+      and ingredients["transport-belt"] == 4,
+    "ordinary lab recipe changed"
+  )
+  assert(prototypes.item.lab.place_result.name == "lab", "ordinary lab item changed")
+  for _, technology in pairs(game.forces.player.technologies) do
+    for _, effect in pairs(technology.prototype.effects) do
+      assert(effect.recipe ~= "shwc-lab", "extra lab unlock remains")
+    end
   end
   local surface = game.create_surface("science-validation", {
     seed = 12345,
@@ -89,6 +133,21 @@ script.on_init(function()
   surface.set_tiles(tiles)
   storage.fixture = { surface = surface, arms = {} }
   local state = storage.fixture
+  state.conventional_force = game.create_force("conventional-science-validation")
+  state.conventional_force.research_queue = { "science-validation-conventional" }
+  state.conventional_lab = assert(surface.create_entity({
+    name = "lab",
+    position = { -50, 25 },
+    force = state.conventional_force,
+    raise_built = true,
+  }))
+  assert(#state.conventional_lab.get_inventory(defines.inventory.chest) == 1)
+  local conventional_pole = spawn("small-electric-pole", -50, 27)
+  conventional_pole.force = state.conventional_force
+  local conventional_power = spawn("electric-energy-interface", -50, 30)
+  conventional_power.force = state.conventional_force
+  conventional_power.energy = 1000000000
+  assert(state.conventional_lab.insert({ name = "automation-science-pack", count = 1 }) == 1)
   local bootstrap_area = { { -1, -1 }, { 4, 2 } }
   state.bootstrap_arm =
     game.surfaces.nauvis.find_entities_filtered({ type = "inserter", area = bootstrap_area })[1]
@@ -100,14 +159,13 @@ script.on_init(function()
   end)
   state.bootstrap_destination = bootstrap_chests[2]
   local existing_input = bootstrap_chests[1].get_inventory(defines.inventory.chest)[1]
-  existing_input.set_stack({ name = mixtures.items[1], count = 1, health = wear.to_health(3) })
+  existing_input.set_stack({ name = mixtures.beaker, count = 1, health = wear.to_health(3) })
   assert(
-    game.forces.player.recipes["shwc-mixer"].enabled
-      and game.forces.player.recipes["shwc-lab"].enabled,
+    game.forces.player.recipes["shwc-mixer"].enabled,
     "existing green research did not unlock new machines"
   )
   state.character = spawn("character", 50, 30)
-  state.red = mixer(-30, 0, 1)
+  state.red = mixer(-30, 0, 2)
   state.green = mixer(-20, 0, nil, 1)
   state.combined = mixer(-10, 0, 1, 1)
   state.sample = mixer(0, 0, 1)
@@ -126,23 +184,23 @@ script.on_init(function()
   }) do
     state.arms[#state.arms + 1] = arm_case(name, -50 + index * 16, 0)
   end
-  state.boundary = arm_case("inserter", 46, 9)
-  state.failure = arm_case("fast-inserter", -50, 9)
+  state.boundary = arm_case("inserter", 46, 8)
+  state.failure = arm_case("fast-inserter", -50, 8)
+  state.raw_arm = arm_case("fast-inserter", -26, 0, mixtures.packs[1])
   state.waste = arm_case("inserter", -42, 0, "shwc-denatured-science")
-  state.lab = spawn("shwc-lab", 0, 25)
+  state.lab = spawn("lab", 0, 25)
   state.lab_pole = spawn("small-electric-pole", -1, 27)
   state.lab_power = spawn("electric-energy-interface", 0, 30)
   state.lab_power.energy = 1000000000
-  local lab_input = state.lab.get_inventory(defines.inventory.lab_input)
-  for _, name in ipairs(mixtures.items) do
-    assert(lab_input.insert({ name = name, count = 1 }) > 0)
-  end
+  local lab_input = state.lab.get_inventory(defines.inventory.chest)
+  assert(lab_input and #lab_input == 1, "lab needs one physical generic input slot")
+  assert(lab_input.insert({ name = mixtures.packs[2], count = 1 }) == 1)
   state.lab_source = spawn("wooden-chest", -3, 25)
   spawn("inserter", -2, 25, defines.direction.west)
-  assert(state.lab_source.insert({ name = mixtures.items[3], count = 4 }) == 4)
+  assert(state.lab_source.insert({ name = mixtures.beaker, count = 4 }) == 4)
   local technology = game.forces.player.technologies["science-validation-research"]
   assert(#technology.research_unit_ingredients == 1, "equal red/green technology not converted")
-  assert(technology.research_unit_ingredients[1].name == mixtures.items[3])
+  assert(technology.research_unit_ingredients[1].name == mixtures.beaker)
   assert(technology.research_unit_count == 5 and technology.research_unit_energy == 120)
   game.forces.player.add_research(technology)
   state.timing = mixer(-35, 15)
@@ -182,7 +240,7 @@ script.on_init(function()
   power(23, 37)
   spawn("small-electric-pole", 27, 37)
   local belt_item = state.belt_source.get_inventory(defines.inventory.chest)[1]
-  belt_item.set_stack({ name = mixtures.items[3], count = 1 })
+  belt_item.set_stack({ name = mixtures.beaker, count = 1 })
   belt_item.health = wear.to_health(3)
 end)
 
@@ -228,7 +286,7 @@ local function extended_tick(state, tick)
   end
   local total = 0
   local function count_stack(stack, expected)
-    if stack.valid_for_read and stack.name == mixtures.items[3] then
+    if stack.valid_for_read and stack.name == mixtures.beaker then
       assert(
         stack.count == 1 and wear.from_health(stack.health) == expected,
         "belt route wear changed"
@@ -256,6 +314,16 @@ local function extended_tick(state, tick)
   count_stack(state.belt_destination.get_inventory(defines.inventory.chest)[1], 5)
   assert(total == 1, "belt route lost or duplicated beaker")
   if tick == 10 then
+    assert(
+      state.lab.get_inventory(defines.inventory.chest)[1].name == mixtures.packs[2],
+      "wrong mixture did not block single physical slot"
+    )
+    assert(
+      worker(state.lab).get_inventory(defines.inventory.lab_input).is_empty(),
+      "worker has physical science buffer"
+    )
+    state.lab.get_inventory(defines.inventory.chest).clear()
+    assert(state.lab.insert({ name = mixtures.beaker, count = 1 }) == 1)
     local irrelevant = spawn("big-rock", 55, 0)
     irrelevant.destroy({ raise_destroy = true })
     local full = game.create_inventory(1)
@@ -282,7 +350,7 @@ local function extended_tick(state, tick)
     )
   elseif tick == 90 then
     assert(
-      inventory(state.failed_mine).get_item_count(mixtures.items[3]) == 1,
+      inventory(state.failed_mine).get_item_count(mixtures.beaker) == 1,
       "failed mining lost live craft registration or contents"
     )
     assert(state.circuit.disabled_by_control_behavior, "circuit condition did not disable shell")
@@ -319,23 +387,29 @@ local function extended_tick(state, tick)
       "circuit pause did not preserve active craft"
     )
     state.circuit.get_control_behavior().circuit_enable_disable = false
+  elseif tick == 431 then
+    assert(
+      math.abs(state.timing.crafting_progress - 0.5) < 0.000001,
+      "native progress bar not halfway after thirty powered ticks"
+    )
   elseif tick == 460 then
     assert(inventory(state.timing).is_empty(), "craft completed before sixty powered ticks")
   elseif tick == 461 then
     assert(
-      inventory(state.timing).get_item_count(mixtures.items[1]) == 1,
+      inventory(state.timing).get_item_count(mixtures.packs[1]) == 1,
       "craft did not complete after exactly sixty powered ticks"
     )
+    assert(state.timing.crafting_progress == 0, "native progress did not reset on delivery")
   elseif tick == 490 then
     local existing_output = state.bootstrap_destination.get_inventory(defines.inventory.chest)[1]
     assert(
       existing_output.valid_for_read
-        and existing_output.name == mixtures.items[1]
+        and existing_output.name == mixtures.beaker
         and wear.from_health(existing_output.health) == 4,
       "existing-world inserter was not registered or charged"
     )
     assert(
-      inventory(state.circuit).get_item_count(mixtures.items[1]) == 1,
+      inventory(state.circuit).get_item_count(mixtures.packs[1]) == 1,
       "resumed circuit craft lost output"
     )
     assert(
@@ -353,7 +427,7 @@ local function extended_tick(state, tick)
     local total_beakers = 0
     for index = 1, #state.arm_mining do
       local stack = state.arm_mining[index]
-      if stack.valid_for_read and stack.name == mixtures.items[3] then
+      if stack.valid_for_read and stack.name == mixtures.beaker then
         assert(wear.from_health(stack.health) == 1, "mining changed held wear")
         total_beakers = total_beakers + stack.count
       end
@@ -369,79 +443,63 @@ local function extended_tick(state, tick)
       "five-unit research left source beakers"
     )
     assert(
-      state.lab.get_inventory(defines.inventory.lab_input).get_item_count(mixtures.items[3]) == 0,
+      state.lab.get_inventory(defines.inventory.chest).get_item_count(mixtures.beaker) == 0,
       "five-unit research left physical beakers"
     )
     assert(
-      state.lab.get_stored_durability(mixtures.items[3]).durability < 0.000001,
+      worker(state.lab).get_stored_durability(mixtures.beaker).durability < 0.000001,
       "five-unit research left unexpected credit"
     )
-    state.lab.insert({ name = mixtures.items[3], count = 1 })
+    state.lab.insert({ name = mixtures.beaker, count = 1 })
     force.research_queue = { "science-validation-credit" }
-    state.other_lab = spawn("shwc-lab", 12, 25)
-    power(12, 28)
-    state.other_lab.disabled_by_script = true
-    state.other_lab.insert({ name = mixtures.items[3], count = 1 })
-    state.health_lab = spawn("shwc-lab", 42, 25)
-    power(42, 28)
-    local committed = state.health_lab.get_inventory(defines.inventory.lab_input)
-    assert(
-      committed.insert({ name = mixtures.items[3], count = 1, health = wear.to_health(10) }) == 1
-    )
+    state.other_lab = spawn("lab", 12, 25)
+    power(12, 27)
+    worker(state.other_lab).disabled_by_script = true
+    state.other_lab.insert({ name = mixtures.beaker, count = 1 })
+    state.health_lab = spawn("lab", 42, 25)
+    power(42, 27)
+    local committed = state.health_lab.get_inventory(defines.inventory.chest)
+    assert(committed.insert({ name = mixtures.beaker, count = 1, health = wear.to_health(9) }) == 1)
   elseif tick == 930 then
-    local credit = state.health_lab.get_stored_durability(mixtures.items[3]).durability
+    local credit = worker(state.health_lab).get_stored_durability(mixtures.beaker).durability
     assert(credit > 0 and credit < 1, "worn beaker did not become native credit")
-    local mined = game.create_inventory(8)
     assert(
-      state.health_lab.mine({ inventory = mined, raise_destroyed = true }),
-      "worn lab mining failed"
+      worker(state.health_lab).get_module_inventory().insert({ name = "speed-module", count = 1 })
+        == 1
     )
-    local source = spawn("wooden-chest", 42, 25)
-    local recovered = 0
-    for _, dropped in
-      pairs(state.surface.find_entities_filtered({
-        type = "item-entity",
-        area = { { 38, 21 }, { 46, 29 } },
-      }))
-    do
-      if dropped.stack.name == mixtures.items[3] then
-        assert(dropped.stack.health <= wear.to_health(10), "mining renewed committed beaker health")
-        assert(
-          math.abs(dropped.stack.durability - credit) < 0.000001,
-          "worn credit durability changed"
-        )
-        recovered = recovered + dropped.stack.count
-        assert(source.get_inventory(defines.inventory.chest)[1].transfer_stack(dropped.stack))
-        if dropped.valid then
-          dropped.destroy()
-        end
-      end
-    end
-    assert(recovered == 1, "worn credit recovery count")
+    local mined = game.create_inventory(8)
+    local native = worker(state.health_lab)
+    salvage_lab(state.health_lab, mined)
+    assert(not native.valid, "script removal orphaned worker")
+    assert(mined.get_item_count("speed-module") == 1, "removal lost worker module")
+    local tagged = assert(mined.find_item_stack("lab"), "removal lost credit item")
+    assert(#tagged.tags.sciencecredits == 1, "removal lost tagged credit")
+    assert(
+      math.abs(tagged.tags.sciencecredits[1].durability - credit) < 0.000001,
+      "removal changed fractional mixed credit"
+    )
     mined.destroy()
-    state.recovered_arm = spawn("inserter", 43, 25, defines.direction.west)
-    state.recovered_destination = spawn("wooden-chest", 44, 25)
-    spawn("small-electric-pole", 43, 27)
   elseif tick == 960 then
-    state.independent_credit = state.lab.get_stored_durability(mixtures.items[3]).durability
+    state.independent_credit = worker(state.lab).get_stored_durability(mixtures.beaker).durability
     assert(
       state.independent_credit > 0 and state.independent_credit < 1,
       "primary lab not consuming credit"
     )
     state.lab_pole.destroy()
-    state.lab.energy = 0
+    worker(state.lab).energy = 0
     state.progress_before_other = game.forces.player.research_progress
-    state.other_lab.disabled_by_script = false
+    worker(state.other_lab).disabled_by_script = false
   elseif tick == 1020 then
     assert(
-      state.lab.get_stored_durability(mixtures.items[3]).durability == state.independent_credit,
+      worker(state.lab).get_stored_durability(mixtures.beaker).durability
+        == state.independent_credit,
       "other lab spent paused primary credit"
     )
     assert(
       game.forces.player.research_progress > state.progress_before_other,
       "second lab did not advance shared research"
     )
-    state.other_credit = state.other_lab.get_stored_durability(mixtures.items[3]).durability
+    state.other_credit = worker(state.other_lab).get_stored_durability(mixtures.beaker).durability
     assert(
       state.other_credit > 0 and state.other_credit < 1,
       "second lab has no independent credit"
@@ -450,43 +508,183 @@ local function extended_tick(state, tick)
     state.other_lab.insert({ name = mixtures.packs[1], count = 1 })
     state.lab.insert({ name = mixtures.packs[1], count = 1 })
     state.lab_pole = spawn("small-electric-pole", -1, 27)
+    state.tagged_input_shell = spawn("lab", 24, 25)
+    power(24, 27)
+    assert(state.tagged_input_shell.insert({ name = mixtures.packs[1], count = 1 }) == 1)
   elseif tick == 1050 then
+    state.tagged_input_worker = worker(state.tagged_input_shell)
+    state.tagged_input_worker.disabled_by_script = true
+    state.tagged_shell_credit =
+      state.tagged_input_worker.get_stored_durability(mixtures.packs[1]).durability
+    assert(state.tagged_shell_credit > 0 and state.tagged_shell_credit < 1)
     assert(
-      state.lab.get_stored_durability(mixtures.items[3]).durability == state.independent_credit,
+      worker(state.lab).get_stored_durability(mixtures.beaker).durability
+        == state.independent_credit,
       "research switch erased primary credit"
     )
     assert(
-      state.other_lab.get_stored_durability(mixtures.items[3]).durability == state.other_credit,
+      worker(state.other_lab).get_stored_durability(mixtures.beaker).durability
+        == state.other_credit,
       "research switch erased second credit"
     )
     assert(
       game.forces.player.research_progress > 0,
       "single-science research did not use raw science"
     )
-    assert(
-      state.lab.get_inventory(defines.inventory.lab_input).get_item_count(mixtures.items[1]) == 1,
-      "raw research consumed singleton beaker"
-    )
+    local raw = worker(state.other_lab).get_stored_durability(mixtures.packs[1]).durability
+    assert(raw > 0 and raw < 1, "raw science did not retain fractional native credit")
     force.research_queue = { "science-validation-credit" }
   elseif tick == 1100 then
+    worker(state.other_lab).disabled_by_script = true
+    state.robot_credit = {}
+    for _, name in ipairs(worker(state.other_lab).prototype.lab_inputs) do
+      state.robot_credit[name] = worker(state.other_lab).get_stored_durability(name).durability
+    end
     assert(
-      state.recovered_waste,
-      "recovered committed credit did not denature on next actual pickup"
+      worker(state.other_lab)
+        .get_module_inventory()
+        .insert({ name = "productivity-module", count = 1 }) == 1
     )
+    state.robot_worker = worker(state.other_lab)
+    state.robot_shell = state.other_lab
+    local port = spawn("roboport", 18, 33)
+    port.energy = 100000000
+    spawn("small-electric-pole", 20, 31)
+    local source = spawn("electric-energy-interface", 23, 31)
+    source.energy = 1000000000
+    state.robot_chest = spawn("storage-chest", 18, 29)
+    assert(port.insert({ name = "construction-robot", count = 10 }) == 10)
+    assert(state.robot_shell.insert({ name = "lab", count = 2 }) == 2)
+    assert(state.robot_shell.order_deconstruction(game.forces.player))
+    local incoming = state.tagged_input_shell.get_inventory(defines.inventory.chest)[1]
+    incoming.set_stack({ name = "lab", count = 1 })
+    incoming.tags = {
+      sciencecredits = { { name = mixtures.packs[2], durability = 0.375, quality = "normal" } },
+      fixture_marker = "already-credited-input",
+      fixture_metadata = { value = 17 },
+    }
+    assert(state.tagged_input_shell.order_deconstruction(game.forces.player))
+    local primary_credit = worker(state.lab).get_stored_durability(mixtures.beaker).durability
     assert(
-      state.recovered_destination
-        .get_inventory(defines.inventory.chest)
-        .get_item_count("shwc-denatured-science") == 1,
-      "recovered waste count changed"
-    )
-    assert(
-      state.lab.get_stored_durability(mixtures.items[3]).durability < state.independent_credit,
+      primary_credit < state.independent_credit,
       "matching research did not resume primary credit"
     )
+    local other_credit = worker(state.other_lab).get_stored_durability(mixtures.beaker).durability
+    assert(other_credit < state.other_credit, "matching research did not resume second credit")
+  end
+end
+
+local function robot_tick(state)
+  if not state.robot_shell then
+    return
+  end
+  local delivered = state.robot_chest.get_inventory(defines.inventory.chest)
+  if
+    not state.robot_mined
+    and not state.robot_shell.valid
+    and not state.tagged_input_shell.valid
+    and delivered.get_item_count("lab") == 5
+    and delivered.get_item_count("productivity-module") == 1
+  then
     assert(
-      state.other_lab.get_stored_durability(mixtures.items[3]).durability < state.other_credit,
-      "matching research did not resume second credit"
+      not state.robot_shell.valid and not state.robot_worker.valid,
+      "robot mining left shell or worker"
     )
+    local input = state.robot_chest.get_inventory(defines.inventory.chest)
+    assert(not state.tagged_input_worker.valid, "tagged-input mining orphaned worker")
+    state.extra_labs = game.create_inventory(8)
+    local incoming_count, shell_count = 0, 0
+    for i = 1, #input do
+      local stack = input[i]
+      if stack.valid_for_read and stack.name == "lab" and stack.tags.sciencecredits then
+        local tags = stack.tags
+        if tags.fixture_marker then
+          assert(tags.fixture_marker == "already-credited-input", "input marker overwritten")
+          assert(tags.fixture_metadata.value == 17, "input metadata overwritten")
+          assert(#tags.sciencecredits == 1, "input gained credit")
+          local credit = tags.sciencecredits[1]
+          assert(
+            credit.name == mixtures.packs[2]
+              and credit.durability == 0.375
+              and credit.quality == "normal",
+            "tagged input credit overwritten"
+          )
+          incoming_count = incoming_count + stack.count
+          assert(state.extra_labs.insert(stack) == stack.count)
+          stack.clear()
+        elseif #tags.sciencecredits == 1 and tags.sciencecredits[1].name == mixtures.packs[1] then
+          assert(
+            math.abs(tags.sciencecredits[1].durability - state.tagged_shell_credit) < 0.000001,
+            "tagged-input shell credit changed"
+          )
+          shell_count = shell_count + stack.count
+          assert(state.extra_labs.insert(stack) == stack.count)
+          stack.clear()
+        end
+      end
+    end
+    assert(incoming_count == 1, "tagged Lab input lost or duplicated")
+    assert(shell_count == 1, "tagged-input shell credit lost or duplicated")
+    local lab
+    for i = 1, #input do
+      local stack = input[i]
+      if stack.valid_for_read and stack.name == "lab" and stack.tags.sciencecredits then
+        lab = stack
+        break
+      end
+    end
+    assert(lab, "robot did not deliver credited mined lab")
+    assert(lab.tags and lab.tags.sciencecredits, "robot mined lab lost credit tags")
+    assert(lab.count == 1, "robot mining tagged multiple Lab items with the same credit")
+    local untagged = 0
+    for i = 1, #input do
+      local stack = input[i]
+      if stack.valid_for_read and stack.name == "lab" and not stack.tags.sciencecredits then
+        untagged = untagged + stack.count
+        assert(state.extra_labs.insert(stack) == stack.count)
+        stack.clear()
+      end
+    end
+    assert(untagged == 2, "robot mining changed untagged Lab input items")
+    assert(input.get_item_count("lab") == 1, "robot mining returned extra credit carriers")
+    log("SCIENCE_TAGGED_INPUT_ROBOT PASS incoming=1 shell=1 original=1 untagged=2")
+
+    assert(input.get_item_count("productivity-module") == 1, "robot mining lost native module")
+    local tags = lab.tags
+    local restored = {}
+    for _, credit in ipairs(tags.sciencecredits) do
+      restored[credit.name] = credit.durability
+    end
+    for name, amount in pairs(state.robot_credit) do
+      assert(
+        math.abs((restored[name] or 0) - amount) < 0.000001,
+        "robot mining changed " .. name .. " credit"
+      )
+    end
+    state.robot_ghost = state.surface.create_entity({
+      name = "entity-ghost",
+      inner_name = "lab",
+      position = { 12, 25 },
+      force = game.forces.player,
+    })
+    -- Actual robot placement consumes the tagged item delivered by construction robots.
+    state.robot_mined = true
+  elseif state.robot_mined and not state.robot_rebuilt and not state.robot_ghost.valid then
+    local shell = assert(
+      state.surface.find_entities_filtered({ name = "lab", position = { 12, 25 }, radius = 1 })[1],
+      "robot rebuilt shell absent"
+    )
+    state.restored_robot_lab = shell
+    local native = worker(shell)
+    local raw = native.get_stored_durability(mixtures.packs[1]).durability
+    assert(
+      math.abs(raw - state.robot_credit[mixtures.packs[1]]) < 0.000001,
+      "robot build lost fractional raw credit"
+    )
+    local mixed = native.get_stored_durability(mixtures.beaker).durability
+    if mixed > 0 and mixed < state.robot_credit[mixtures.beaker] then
+      state.robot_rebuilt = true
+    end
   end
 end
 
@@ -496,21 +694,57 @@ script.on_event(defines.events.on_tick, function(event)
   if state.done then
     return
   end
-  extended_tick(state, tick)
-  for _, case in ipairs(state.arms) do
-    if case.arm.valid then
-      check_arm(case, mixtures.items[3], costs[case.name])
+  for _, entity in pairs(state.surface.find_entities_filtered({ name = "shwc-lab-worker" })) do
+    assert(
+      entity.get_inventory(defines.inventory.lab_input).is_empty(),
+      "hidden physical science buffer"
+    )
+  end
+  if tick == 10 or tick == 20 then
+    assert(
+      state.conventional_lab.get_inventory(defines.inventory.chest).is_empty(),
+      "conventional three-science research blocked required raw ingredient"
+    )
+    local next_pack = tick == 10 and "logistic-science-pack" or "chemical-science-pack"
+    assert(state.conventional_lab.insert({ name = next_pack, count = 1 }) == 1)
+  elseif tick == 110 then
+    assert(
+      state.conventional_force.technologies["science-validation-conventional"].researched,
+      "conventional three-science research did not complete"
+    )
+    assert(
+      state.conventional_lab.get_inventory(defines.inventory.chest).is_empty(),
+      "conventional research left physical input"
+    )
+    local native = worker(state.conventional_lab)
+    for _, name in ipairs({
+      "automation-science-pack",
+      "logistic-science-pack",
+      "chemical-science-pack",
+    }) do
+      assert(
+        native.get_stored_durability(name).durability < 0.000001,
+        "conventional research did not consume exactly one " .. name
+      )
     end
   end
-  check_arm(state.boundary, mixtures.items[3], 10)
+  extended_tick(state, tick)
+  robot_tick(state)
+  for _, case in ipairs(state.arms) do
+    if case.arm.valid then
+      check_arm(case, mixtures.beaker, costs[case.name])
+    end
+  end
+  check_arm(state.boundary, mixtures.beaker, 9)
   check_arm(state.failure, "shwc-denatured-science", 0)
+  check_arm(state.raw_arm, mixtures.packs[1], 0)
   check_arm(state.waste, "shwc-denatured-science", 0)
   if tick == 10 then
     state.sample.insert({ name = mixtures.packs[2], count = 1 })
     -- Block after the craft has already consumed its input.
     local output = inventory(state.blocked)
     for index = 1, #output do
-      assert(output[index].set_stack({ name = mixtures.items[index], count = 1 }))
+      assert(output[index].set_stack({ name = mixtures.outputs[index], count = 1 }))
     end
     assert(
       state.removal.mine({
@@ -545,10 +779,17 @@ script.on_event(defines.events.on_tick, function(event)
         .. "/"
         .. state.character.get_main_inventory().get_item_count(mixtures.packs[2])
     )
+    -- This inventory is reused for the independent lab mining regression.
+    state.character.get_main_inventory().clear()
   elseif tick == 90 then
-    assert(inventory(state.red).get_item_count(mixtures.items[1]) == 1, "red recipe-free craft")
-    assert(inventory(state.green).get_item_count(mixtures.items[2]) == 1, "green recipe-free craft")
-    assert(inventory(state.combined).get_item_count(mixtures.items[3]) == 1, "combined craft")
+    assert(inventory(state.red).get_item_count(mixtures.packs[1]) == 1, "red passthrough count")
+    local red = inventory(state.red).find_item_stack(mixtures.packs[1])
+    assert(
+      red.name == mixtures.packs[1] and red.health == 1,
+      "passthrough changed ordinary science identity or health"
+    )
+    assert(inventory(state.green).get_item_count(mixtures.packs[2]) == 1, "green recipe-free craft")
+    assert(inventory(state.combined).get_item_count(mixtures.beaker) == 1, "combined craft")
     assert(inventory(state.blocked).get_item_count() == 3, "blocked output overwrote items")
     assert(inventory(state.unpowered).is_empty(), "unpowered mixer crafted")
     assert(
@@ -556,136 +797,147 @@ script.on_event(defines.events.on_tick, function(event)
         .get_inventory(defines.inventory.crafter_input)
         .get_item_count(mixtures.packs[1]) == 1
     )
-    state.credit_before_pause = state.lab.get_stored_durability(mixtures.items[3]).durability
+    state.credit_before_pause = worker(state.lab).get_stored_durability(mixtures.beaker).durability
     assert(
       state.credit_before_pause > 0 and state.credit_before_pause < 1,
-      "native lab has no fractional credit"
+      "native lab has no fractional credit: "
+        .. state.credit_before_pause
+        .. " energy="
+        .. worker(state.lab).energy
+        .. " status="
+        .. worker(state.lab).status
     )
     state.lab_pole.destroy()
-    state.lab.energy = 0
+    worker(state.lab).energy = 0
   elseif tick == 100 then
     state.reload.insert({ name = mixtures.packs[1], count = 1 })
     state.reload.insert({ name = mixtures.packs[2], count = 1 })
   elseif tick == checkpoint_tick then
-    state.credit_checkpoint = state.lab.get_stored_durability(mixtures.items[3]).durability
+    state.credit_checkpoint = worker(state.lab).get_stored_durability(mixtures.beaker).durability
     assert(state.credit_checkpoint == state.credit_before_pause, "power interruption spent credit")
     assert(inventory(state.reload).is_empty(), "midcraft checkpoint too late")
+    state.native_progress_checkpoint = state.reload.crafting_progress
+    assert(
+      state.native_progress_checkpoint > 0 and state.native_progress_checkpoint < 1,
+      "midcraft native progress bar missing"
+    )
     assert(state.boundary.arm.held_stack.valid_for_read, "midhand checkpoint missing")
     state.checkpoint = true
     game.auto_save("science-validation-checkpoint", true)
     log("SCIENCE_VALIDATION_CHECKPOINT PASS")
   elseif tick == checkpoint_tick + 1 then
     assert(state.checkpoint, "checkpoint state missing after reload")
+    local credit = worker(state.lab).get_stored_durability(mixtures.beaker).durability
+    assert(credit == state.credit_checkpoint, "reload lost credit")
     assert(
-      state.lab.get_stored_durability(mixtures.items[3]).durability == state.credit_checkpoint,
-      "reload lost credit"
+      state.reload.crafting_progress > state.native_progress_checkpoint,
+      "native progress did not resume from serialized midpoint"
     )
     log("SCIENCE_VALIDATION_RESUMED PASS")
   elseif tick == 180 then
     assert(
-      inventory(state.reload).get_item_count(mixtures.items[3]) == 1,
+      inventory(state.reload).get_item_count(mixtures.beaker) == 1,
       "reload lost midcraft output"
     )
     assert(
-      inventory(state.sample).get_item_count(mixtures.items[1]) == 1,
+      inventory(state.sample).get_item_count(mixtures.packs[1]) == 1,
       "later ingredient changed active craft"
     )
     assert(
-      inventory(state.sample).get_item_count(mixtures.items[2]) == 1,
+      inventory(state.sample).get_item_count(mixtures.packs[2]) == 1,
       "later ingredient not next craft"
     )
     inventory(state.blocked).clear()
     state.lab_pole = spawn("small-electric-pole", -1, 27)
   elseif tick == 250 then
     assert(
-      inventory(state.blocked).get_item_count(mixtures.items[3]) == 1,
+      inventory(state.blocked).get_item_count(mixtures.beaker) == 1,
       "blocked craft lost or duplicated output"
     )
     assert(
       state.blocked.get_inventory(defines.inventory.crafter_input).is_empty(),
       "blocked craft did not consume exactly once"
     )
-    state.lab.disabled_by_script = true
-    local credit = state.lab.get_stored_durability(mixtures.items[3]).durability
+  elseif tick == 2000 then
     assert(
-      credit > 0 and credit < 1,
-      "lab credit missing before mining "
-        .. credit
-        .. " progress "
-        .. game.forces.player.research_progress
-        .. " energy "
-        .. state.lab.energy
+      state.robot_mined,
+      "robot mining/delivery deadline exceeded: original="
+        .. tostring(state.robot_shell.valid)
+        .. " tagged="
+        .. tostring(state.tagged_input_shell.valid)
+        .. " Labs="
+        .. state.robot_chest.get_item_count("lab")
+        .. " modules="
+        .. state.robot_chest.get_item_count("productivity-module")
     )
-    local physical =
-      state.lab.get_inventory(defines.inventory.lab_input).get_item_count(mixtures.items[3])
+  elseif tick == 2300 then
+    assert(state.robot_rebuilt, "robot rebuild/research deadline exceeded")
+  elseif tick == 2350 then
+    local shell = state.restored_robot_lab
+    local native = worker(shell)
+    native.disabled_by_script = true
+    assert(native.get_module_inventory().insert({ name = "speed-module", count = 1 }) == 1)
+    state.lifecycle_credit = {}
+    for _, name in ipairs(native.prototype.lab_inputs) do
+      state.lifecycle_credit[name] = native.get_stored_durability(name).durability
+    end
+    script.raise_script_built({ entity = shell })
+    assert(worker(shell) == native, "duplicate build replaced worker")
+    assert(#shell.surface.find_entities_filtered({
+      name = "shwc-lab-worker",
+      position = shell.position,
+      radius = 0.1,
+    }) == 1, "duplicate build orphaned worker")
+    local clone = assert(shell.clone({ position = { 52, 25 } }), "native shell clone failed")
+    local clone_worker = worker(clone)
+    local duplicate = native.clone({ position = clone.position })
+    assert(not duplicate or not duplicate.valid, "native worker clone orphaned paid science")
+    assert(clone_worker.get_module_inventory().is_empty(), "clone duplicated modules")
+    for _, name in ipairs(clone_worker.prototype.lab_inputs) do
+      assert(clone_worker.get_stored_durability(name).durability == 0, "clone duplicated credit")
+    end
+    clone.destroy({ raise_destroy = true })
+    assert(not clone_worker.valid, "cloned shell removal orphaned worker")
+    assert(shell.teleport({ 14, 25 }), "same-surface shell teleport failed")
+    state.lifecycle_worker = native
+  elseif tick == 2351 then
+    local shell = state.restored_robot_lab
+    local native = worker(shell)
     assert(
-      state.lab.mine({ inventory = state.character.get_main_inventory(), raise_destroyed = true }),
-      "lab mining failed"
+      not state.lifecycle_worker.valid or native == state.lifecycle_worker,
+      "teleport orphaned old worker"
     )
-    local returned = 0
-    for _, dropped in
-      pairs(state.surface.find_entities_filtered({
-        type = "item-entity",
-        area = { { -2, 23 }, { 2, 27 } },
-      }))
-    do
-      if dropped.stack.name == mixtures.items[3] then
-        returned = returned + dropped.stack.durability
-      end
-    end
-    local recovered = state.character.get_main_inventory()
-    for index = 1, #recovered do
-      local stack = recovered[index]
-      if stack.valid_for_read and stack.name == mixtures.items[3] then
-        returned = returned + stack.durability * stack.count
-      end
-    end
     assert(
-      math.abs(returned - credit - physical) < 0.000001,
-      "mining lost fractional native science credit"
+      native.get_module_inventory().get_item_count("speed-module") == 1,
+      "teleport lost module"
     )
-    state.lab = spawn("shwc-lab", 0, 25)
-    local lab_input = state.lab.get_inventory(defines.inventory.lab_input)
-    for index = 1, #recovered do
-      local stack = recovered[index]
-      if stack.valid_for_read and mixtures.is_beaker(stack.name) then
-        local target = lab_input
-        if stack.name == mixtures.items[3] and stack.durability == 1 then
-          target = state.lab_source.get_inventory(defines.inventory.chest)
-        end
-        assert(target.insert(stack) == stack.count, "mined stack not recoverable")
-        stack.clear()
-      end
+    for name, amount in pairs(state.lifecycle_credit) do
+      assert(
+        math.abs(native.get_stored_durability(name).durability - amount) < 0.000001,
+        "duplicate build or teleport changed " .. name .. " credit"
+      )
     end
-    for _, dropped in
-      pairs(state.surface.find_entities_filtered({
-        type = "item-entity",
-        area = { { -2, 23 }, { 2, 27 } },
-      }))
-    do
-      if dropped.stack.name == mixtures.items[3] then
-        assert(lab_input.insert(dropped.stack) == 1, "recovered fractional Tool not insertable")
-        dropped.destroy()
-      end
-    end
+    native.destroy({ raise_destroy = true })
+    assert(not shell.valid, "worker removal left unpaired shell")
   elseif tick == finish_tick then
     for _, case in ipairs(state.arms) do
       assert(case.saw, "inserter never picked up: " .. case.name)
     end
     assert(
-      state.boundary.saw and state.failure.saw and state.waste.saw,
+      state.boundary.saw and state.failure.saw and state.waste.saw and state.raw_arm.saw,
       "wear boundary logistics missing"
     )
-    local input = state.lab.get_inventory(defines.inventory.lab_input)
-    assert(
-      input.get_item_count(mixtures.items[1]) == 1 and input.get_item_count(mixtures.items[2]) == 1,
-      "wrong mixes consumed"
-    )
+    local input = state.lab.get_inventory(defines.inventory.chest)
+    assert(#input == 1, "lab physical input size changed")
     assert(
       game.forces.player.technologies["science-validation-research"].researched,
       "native five-beaker research did not complete"
     )
 
+    assert(
+      inventory(state.red).get_item_count(mixtures.packs[1]) == 2,
+      "raw passthrough lost second stacked pack"
+    )
     state.done = true
     log("SCIENCE_VALIDATION_FINAL PASS")
   end

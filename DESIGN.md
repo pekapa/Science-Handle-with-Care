@@ -12,15 +12,16 @@ The mixer has no player-selected recipe: the science types present when crafting
 starts determine the mixture. Research does not fill in missing ingredients or
 correct a player's mixture.
 
-Every nonempty subset of supported science types has a distinct beaker, including
-mixtures no technology uses. A useless mixture remains that mixture; it is not
+Every nonempty subset of supported science types is producible, including
+mixtures no technology uses. A single science type passes through as the same
+ordinary pack; combinations produce distinct fragile beakers. A useless mixture remains that mixture; it is not
 rejected or automatically denatured. A beaker retains its composition when research
 changes. Red+green does not substitute for red+green+blue.
 
 ## Mixing
 
 At crafting start, sample the input types and consume one ordinary science pack of
-each present type to define one beaker. Inputs need not arrive on the same tick;
+each present type to define one output. Inputs need not arrive on the same tick;
 only their presence at the start matters. Later arrivals cannot change an active
 craft. An idle, enabled mixer starts as soon as any supported science ingredient is
 available. There is no automatic collection window: players coordinate deliveries
@@ -43,8 +44,8 @@ splitters add no pickup charge. Each inserter pickup, including final lab loadin
 counts; internal crafting does not itself imply a transport charge.
 
 Ordinary and burner inserters cost 1 per pickup, long-handed and fast inserters
-cost 2, and bulk and stack inserters cost 4. A beaker survives ten agitation
-points and denatures above ten. These are the initial playable values. Tooltips
+cost 2, and bulk and stack inserters cost 4. Fresh beakers have 100% health; each
+point removes 10 percentage points. Nine points survive at 10%; ten denatures. These are the initial playable values. Tooltips
 explain costs; native item health indicates remaining handling allowance.
 
 The prototype encodes wear in item health, independent of research durability.
@@ -54,20 +55,25 @@ a declared policy before release.
 
 ## Labs and research
 
-Players place one visible lab. Native research and each worker's stored science
-credit remain authoritative. A beaker must match the research composition to be
-consumed. Wrong mixtures may wait unused inside the lab until matching research
-uses them, or the player removes them. The lab may buffer beakers; there is no
-global one-physical-beaker limit across intake and research machinery. Continuous research
-is desirable, and the prototype uses native lab input slots and stored credit.
+Players place the ordinary Lab, available through the base recipe and early-game
+unlock. It has exactly one physical science input slot. Wrong science waits
+removable in that slot and blocks other deliveries until removed. Matching science
+is admitted as native credit. Native research and stored per-worker science credit
+remain authoritative; already admitted credit survives research changes and can
+continue research while the intake receives another item.
 
-Inside the lab, beakers are committed to consumption, so health may round downward
-there. This permission does not relax wear preservation during transport. Preserve
-native research timing, quantities, power behavior and credited science through
-research changes, removal and reload. An empty input inventory does not imply
-stored research credit is exhausted, and force-wide progress cannot identify a
-particular worker's credit. The prototype uses a persistent native lab, without
-a hidden worker.
+The visible lab uses a container intake and a persistent hidden native lab worker.
+The worker is necessary because native lab input filters cannot provide one shared,
+untyped physical slot. Its physical science inventory stays empty: admission adds
+native credit directly. Native machinery owns research timing, quantities, power
+and modules. Empty physical inventory does not imply exhausted credit, and force-wide
+progress cannot identify a particular worker's credit.
+
+Inside the lab, beakers are committed to consumption, so health may round downward.
+Transport must preserve individual wear. Mining stores all remaining native credit
+in the mined Lab item's tags; rebuilding restores it. Ordinary science packs are
+Items, not Tools, so fractional ordinary credit cannot be represented by a partially
+used pack. Preserve physical inputs and modules separately from this stored credit.
 
 Circuit support should expose mixer contents and state, and original science
 requirements after technologies consume combined beakers. Wrong or unused mixes
@@ -75,8 +81,9 @@ must remain removable rather than disappearing on a research change.
 
 ## Progression and waste
 
-Single-science research uses its ordinary science pack directly. The mixer and
-beaker lab unlock alongside green science, with no additional technology.
+Single-science research and mixer pass-through use ordinary science packs. The
+ordinary Lab keeps its base recipe and availability. Only the mixer unlocks
+alongside green science, with no additional technology.
 Equal-quantity red+green research uses combined beakers. No extra empty-glass
 production chain is currently planned.
 
