@@ -7,6 +7,8 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
+import zipfile
 from pathlib import Path
 
 from engine_config import CONFIG, download_url, validate_version
@@ -35,6 +37,62 @@ def validate_completion(output):
     markers = re.findall(r"Script @[^\n]*: (SCIENCE_VALIDATION_FINAL PASS)\s*$", output, re.M)
     if markers != [MARKER]:
         raise RuntimeError("Missing or duplicate exact final PASS marker; see benchmark.log")
+
+
+def run_checkpoint(common, save, checkpoint, settings, log_path, timeout):
+    """Run an owned offline server until the named checkpoint is serialized."""
+    with log_path.open("w", encoding="utf-8") as output:
+        server = subprocess.Popen(
+            common
+            + [
+                "--start-server",
+                str(save),
+                "--server-settings",
+                str(settings),
+                "--bind",
+                "127.0.0.1",
+                "--port",
+                "0",
+            ],
+            stdin=subprocess.PIPE,
+            stdout=output,
+            stderr=subprocess.STDOUT,
+        )
+        deadline = time.monotonic() + timeout
+        try:
+            while time.monotonic() < deadline:
+                if server.poll() is not None:
+                    raise RuntimeError(
+                        f"Checkpoint server exited {server.returncode}; see {log_path}"
+                    )
+                text = log_path.read_text(encoding="utf-8", errors="replace")
+                if re.search(r"\b(?:Error|ERROR)\b", text):
+                    raise RuntimeError(f"Engine logged an error; see {log_path}")
+                if (
+                    "SCIENCE_VALIDATION_CHECKPOINT PASS" in text
+                    and checkpoint.is_file()
+                    and zipfile.is_zipfile(checkpoint)
+                ):
+                    break
+                time.sleep(0.1)
+            else:
+                raise RuntimeError(f"Checkpoint save timed out; see {log_path}")
+        finally:
+            # Keep stdin open while running: EOF is an engine error in server mode.
+            if server.poll() is None:
+                server.terminate()
+                try:
+                    server.wait(timeout=20)
+                except subprocess.TimeoutExpired as error:
+                    server.kill()
+                    server.wait(timeout=20)
+                    raise RuntimeError(
+                        f"Checkpoint server shutdown timed out; see {log_path}"
+                    ) from error
+            server.stdin.close()
+    text = log_path.read_text(encoding="utf-8", errors="replace")
+    if re.search(r"\b(?:Error|ERROR)\b", text):
+        raise RuntimeError(f"Engine logged an error; see {log_path}")
 
 
 def main():
@@ -150,18 +208,35 @@ def main():
             args.timeout,
         )
         select_mods(True)
-        checkpoint = run(
-            common + ["--load-game", str(save), "--until-tick", "121"],
+        settings = isolated / "server-settings.json"
+        server_settings = json.loads(
+            (data_dir / "server-settings.example.json").read_text(encoding="utf-8")
+        )
+        server_settings.update(
+            {
+                "name": "Isolated science validation",
+                "visibility": {"public": False, "lan": False},
+                "require_user_verification": False,
+                "auto_pause": False,
+                "autosave_interval": 0,
+                "non_blocking_saving": False,
+            }
+        )
+        settings.write_text(json.dumps(server_settings), encoding="utf-8")
+        checkpoint = write_data / "saves/_autosave-science-validation-checkpoint.zip"
+        run_checkpoint(
+            common,
+            save,
+            checkpoint,
+            settings,
             results / "checkpoint.log",
             args.timeout,
         )
-        if "SCIENCE_VALIDATION_CHECKPOINT PASS" not in checkpoint:
-            raise RuntimeError("Missing checkpoint assertion; see checkpoint.log")
         output = run(
             common
             + [
                 "--benchmark",
-                str(save),
+                str(checkpoint),
                 "--benchmark-ticks",
                 "1100",
                 "--benchmark-runs",
