@@ -1,0 +1,2 @@
+-- Runtime entrypoint. Gameplay is planned in docs/architecture.md.
+-- No events or gameplay changes are registered in this foundation.

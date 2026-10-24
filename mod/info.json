@@ -1,0 +1,9 @@
+{
+  "name": "science-handle-with-care",
+  "version": "0.1.0",
+  "title": "Science, Handle With Care",
+  "author": "pekapa",
+  "factorio_version": "2.1",
+  "dependencies": ["base >= 2.1"],
+  "description": "Project foundation for science packs with pickup-based wear. Gameplay is not implemented yet."
+}

@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://www.coderabbit.ai/integrations/schema.v2.json
+# Keep operational settings in CodeRabbit's website; version project review guidance here.
+inheritance: true
+reviews:
+  path_instructions:
+    - path: "**/*"
+      instructions: |
+        Prioritize consistency with the project's documented practices, architecture,
+        and established patterns. Consult AGENTS.md, CONTRIBUTING.md,
+        docs/architecture.md, docs/decisions.md, and docs/testing.md. Review
+        responsibility placement, state ownership, lifecycle handling, interfaces,
+        and tests—not just whether the changed code works in isolation. Flag changes
+        that bypass existing abstractions, duplicate responsibilities, or introduce
+        competing patterns. Recommend the smallest change that fits the existing
+        architecture, citing the relevant rule or example. Distinguish accepted
+        requirements from proposals and personal preferences.
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - AGENTS.md
+      - CONTRIBUTING.md
+      - docs/decisions.md
+      - docs/architecture.md
+      - docs/testing.md

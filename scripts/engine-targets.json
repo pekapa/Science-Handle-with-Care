@@ -1,0 +1,6 @@
+{
+  "factorio_version": "2.1",
+  "minimum_base_version": "2.1",
+  "default_target": "stable",
+  "targets": ["stable", "experimental"]
+}
