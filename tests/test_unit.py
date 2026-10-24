@@ -2,10 +2,14 @@
 
 import shutil
 import subprocess
+import sys
+import tempfile
 import unittest
+import zipfile
+from pathlib import Path
 
 from engine_config import download_url, validate_version
-from engine_runner import validate_completion
+from engine_runner import run_checkpoint, validate_completion
 from package import MOD, ROOT
 
 
@@ -34,6 +38,51 @@ for path in sorted((ROOT / "tests/unit").glob("*.lua")):
 
 
 class EngineHarnessTests(unittest.TestCase):
+    def test_checkpoint_server_waits_for_completed_archive(self):
+        script = """
+import pathlib, sys, time, zipfile
+args = sys.argv[1:]
+assert args[0] == '--start-server'
+assert args[2] == '--server-settings'
+assert args[4:] == ['--bind', '127.0.0.1', '--port', '0']
+checkpoint = pathlib.Path(args[1]).with_name('checkpoint.zip')
+print('SCIENCE_VALIDATION_CHECKPOINT PASS', flush=True)
+checkpoint.write_text('unfinished archive')
+time.sleep(0.2)
+with zipfile.ZipFile(checkpoint, 'w') as saved:
+    saved.writestr('checkpoint', 'serialized state')
+time.sleep(30)
+"""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            checkpoint = root / "checkpoint.zip"
+            run_checkpoint(
+                [sys.executable, "-c", script],
+                root / "save.zip",
+                checkpoint,
+                root / "settings.json",
+                root / "checkpoint.log",
+                5,
+            )
+            with zipfile.ZipFile(checkpoint) as saved:
+                self.assertEqual(saved.read("checkpoint"), b"serialized state")
+
+    def test_checkpoint_marker_without_save_times_out(self):
+        script = (
+            "import time; print('SCIENCE_VALIDATION_CHECKPOINT PASS', flush=True); time.sleep(30)"
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with self.assertRaisesRegex(RuntimeError, "Checkpoint save timed out"):
+                run_checkpoint(
+                    [sys.executable, "-c", script],
+                    root / "save.zip",
+                    root / "missing.zip",
+                    root / "settings.json",
+                    root / "checkpoint.log",
+                    0.5,
+                )
+
     def test_official_channel_and_exact_version_urls(self):
         for target in ("stable", "experimental", "2.1.23"):
             self.assertEqual(
