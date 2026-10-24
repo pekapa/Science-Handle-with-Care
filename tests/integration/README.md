@@ -35,9 +35,13 @@ the new recipes.
 It creates test-only research prototypes to keep assertions bounded; it does not
 reimplement mixing, wear or research progress.
 
-The first owned process runs to tick 121 and serializes a checkpoint at tick 120,
+The first owned process runs as a private loopback server, with public/LAN visibility
+and user verification disabled and automatic pause off. This works with both
+headless and graphical distributions. It serializes a named autosave at tick 120,
 with a mixer midcraft, an inserter holding a worn beaker and a paused lab holding
-fractional native credit. A second process loads that saved state and runs 1,100 benchmark ticks, requiring
+fractional native credit. The runner waits for the checkpoint assertion and a complete
+ZIP, stops its owned server, then loads that named autosave in a second process
+and runs 1,100 benchmark ticks, requiring
 the final assertion at tick 1,200. The fixture
 requires checkpoint/resume assertions and exactly one final
 `SCIENCE_VALIDATION_FINAL PASS` engine marker. Calling `on_load` directly is not
