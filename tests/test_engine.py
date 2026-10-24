@@ -8,7 +8,7 @@ from package import ROOT
 
 
 class RealEngineTests(unittest.TestCase):
-    def test_packaged_helpers_preserve_tool_through_inserter_and_belt(self):
+    def test_packaged_gameplay_and_actual_save_reload(self):
         result = subprocess.run(
             [sys.executable, str(ROOT / "scripts/engine_runner.py")], check=False
         )

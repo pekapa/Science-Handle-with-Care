@@ -5,7 +5,7 @@ return {
   pickup_cost = {
     ["burner-inserter"] = 1,
     ["inserter"] = 1,
-    ["long-handed-inserter"] = 1,
+    ["long-handed-inserter"] = 2,
     ["fast-inserter"] = 2,
     ["bulk-inserter"] = 4,
     ["stack-inserter"] = 4,

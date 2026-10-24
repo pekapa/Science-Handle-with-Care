@@ -1,0 +1,10 @@
+{
+  "name": "science-bootstrap-fixture",
+  "version": "0.1.0",
+  "title": "Existing-world bootstrap fixture (test only)",
+  "factorio_version": "2.1",
+  "dependencies": [
+    "base >= 2.1"
+  ],
+  "author": "Science, Handle With Care contributors"
+}

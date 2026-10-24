@@ -1,13 +1,31 @@
 data:extend({
   {
-    type = "tool",
-    name = "science-validation-tool",
-    icon = "__base__/graphics/icons/automation-science-pack.png",
-    icon_size = 64,
-    subgroup = "science-pack",
-    order = "z[validation]",
-    stack_size = 1,
-    durability = 1000,
-    durability_description_key = "description.science-pack-remaining-amount",
+    type = "technology",
+    name = "science-validation-research",
+    icon = "__base__/graphics/technology/automation.png",
+    icon_size = 256,
+    unit = {
+      count = 5,
+      time = 2,
+      ingredients = { { "automation-science-pack", 1 }, { "logistic-science-pack", 1 } },
+    },
   },
 })
+
+for _, name in ipairs({ "science-validation-credit", "science-validation-raw" }) do
+  data:extend({
+    {
+      type = "technology",
+      name = name,
+      icon = "__base__/graphics/technology/automation.png",
+      icon_size = 256,
+      unit = {
+        count = 100,
+        time = 10,
+        ingredients = name == "science-validation-credit"
+            and { { "automation-science-pack", 1 }, { "logistic-science-pack", 1 } }
+          or { { "automation-science-pack", 1 } },
+      },
+    },
+  })
+end
