@@ -23,8 +23,8 @@ local function setup_player(event)
   player.insert({ name = "logistic-science-pack", count = 100 })
   player.print({ "scenario.welcome" })
   for _, starter in ipairs({
-    { "shwc-beaker-red", 6 },
-    { "shwc-beaker-green", 6 },
+    { "automation-science-pack", 6 },
+    { "logistic-science-pack", 6 },
     { "shwc-beaker-red-green", 12 },
     { "inserter", 20 },
     { "fast-inserter", 10 },
@@ -34,7 +34,7 @@ local function setup_player(event)
     { "small-electric-pole", 30 },
     { "solar-panel", 20 },
     { "shwc-mixer", 4 },
-    { "shwc-lab", 4 },
+    { "lab", 4 },
   }) do
     player.insert({ name = starter[1], count = starter[2] })
   end
@@ -89,7 +89,7 @@ local function setup()
   )
 
   local mixer = place(surface, "shwc-mixer", { 0, 0 }, force)
-  local lab = place(surface, "shwc-lab", { 4, 0 }, force)
+  local lab = place(surface, "lab", { 4, 0 }, force)
   local red = place(surface, "steel-chest", { -3, -1 }, force)
   local green = place(surface, "steel-chest", { -3, 1 }, force)
   place(surface, "inserter", { -2, -1 }, force)
@@ -131,7 +131,11 @@ script.on_nth_tick(30, function(event)
   end
   if event.tick == 1200 then
     assert(state.saw_delivery, "showcase mixer-to-lab inserter did not transport mixed beaker")
-    assert(state.mixer.energy > 0 and state.lab.energy > 0, "showcase machines lack power")
+    assert(state.mixer.energy > 0 and state.lab.surface.find_entities_filtered({
+      name = "shwc-lab-worker",
+      position = state.lab.position,
+      radius = 0.1,
+    })[1].energy > 0, "showcase machines lack power")
     assert(game.forces.player.research_progress > 0, "showcase native research did not advance")
     state.saved_tick = event.tick
     state.saved_progress = game.forces.player.research_progress

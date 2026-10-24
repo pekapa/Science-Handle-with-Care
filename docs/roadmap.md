@@ -2,11 +2,15 @@
 
 ## Red/green prototype
 
-The installable mod now contains an automatic mixer, three nonempty red/green
-mixtures, pickup wear, stackable waste and a persistent native beaker lab. The
-machines unlock with green science; single-science research remains conventional.
-Equal-quantity red+green technologies consume combined beakers. Wrong mixtures
-wait unused and removable inside labs.
+The mod contains an automatic mixer, ordinary red/green pass-through, fragile
+red+green beakers, pickup wear and stackable waste. Only the mixer unlocks with
+green science. The ordinary Lab retains early availability and gains one physical
+science slot. Wrong science blocks that slot; matching science becomes native
+credit, and mining stores remaining credit on the Lab item.
+
+The revised lab and custom machine interfaces are under validation. Basic setup
+and the transport line have received manual inspection; the revised interface
+still needs a graphical playtest of the installed ZIP.
 
 The maintained isolated engine suite exercises shipped production code, including
 actual save/reload during crafting, holding and native stored credit. See

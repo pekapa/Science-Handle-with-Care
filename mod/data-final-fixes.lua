@@ -7,10 +7,9 @@ for _, technology in pairs(data.raw.technology) do
       amounts[ingredient[1]] = ingredient[2]
     end
     if amounts[mixtures.packs[1]] and amounts[mixtures.packs[1]] == amounts[mixtures.packs[2]] then
-      unit.ingredients = { { mixtures.items[3], amounts[mixtures.packs[1]] } }
+      unit.ingredients = { { mixtures.beaker, amounts[mixtures.packs[1]] } }
     end
   end
 end
 local unlocks = data.raw.technology["logistic-science-pack"].effects
 unlocks[#unlocks + 1] = { type = "unlock-recipe", recipe = "shwc-mixer" }
-unlocks[#unlocks + 1] = { type = "unlock-recipe", recipe = "shwc-lab" }

@@ -3,9 +3,11 @@
 import argparse
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import zipfile
 from pathlib import Path
@@ -53,9 +55,8 @@ def main():
         parser.error("--timeout must be positive")
 
     output_dir = ROOT / "build/showcase"
-    work = output_dir / "work"
-    if work.exists():
-        shutil.rmtree(work)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    work = Path(tempfile.mkdtemp(prefix="work-", dir=output_dir))
     mods = work / "mods"
     write_data = work / "write-data"
     scenarios = write_data / "scenarios"
@@ -164,7 +165,18 @@ def main():
         raise RuntimeError(
             "Independent save load did not reach benchmark completion; see load-validation.log"
         )
+    launcher = output_dir / "launch.sh"
+    if "headless" in version.lower():
+        launcher.unlink(missing_ok=True)
+        print("Graphical launcher skipped: supplied Factorio binary is headless.")
+    else:
+        launcher.write_text(
+            "#!/bin/sh\nexec " + shlex.join(common + ["--load-game", str(built_save)]) + "\n",
+            encoding="utf-8",
+        )
+        print(f"Launch with: sh {shlex.quote(str(launcher))}")
     print(f"Showcase save generated and independently load-validated: {built_save}")
+    print(f"Isolated profile: {work}")
     print(f"Logs: {output_dir}")
 
 

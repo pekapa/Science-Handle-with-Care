@@ -1,7 +1,7 @@
 return {
-  wear_budget = 10,
-  failed_wear = 11,
-  health_steps = 16,
+  wear_budget = 10, -- Reaching this handling budget denatures the beaker.
+  failed_wear = 10,
+  health_steps = 10,
   pickup_cost = {
     ["burner-inserter"] = 1,
     ["inserter"] = 1,
