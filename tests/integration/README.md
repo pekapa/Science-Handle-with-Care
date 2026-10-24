@@ -1,38 +1,58 @@
-# Engine validation fixture
+# Production engine validation
 
-Run `FACTORIO_BIN=/absolute/path/to/factorio make test-engine` or
+Run `FACTORIO_BIN=/absolute/path/to/factorio make test-engine`, or
 `python3 scripts/engine_runner.py --factorio /absolute/path/to/factorio`.
-The supported engine series and channels live in `scripts/engine-targets.json`.
-CI runs the latest official stable and experimental headless channels. Local runs
-use `FACTORIO_BIN` without downloads. Set `FACTORIO_TARGET=2.1.23` (or pass
-`--target 2.1.23` to the engine runner) to require an exact build; channel
-selectors locally verify the supported series, not whether an installed binary is
-the latest release. Each command has a 120-second timeout (`--timeout SECONDS`
-with the engine runner). Missing tools and unavailable downloads fail.
-Use `python3 scripts/test.py --suite engine --list` to discover the named case.
+Use `FACTORIO_TARGET=2.1.23` for an exact-build regression. Channel selectors
+`stable` and `experimental` verify the installed series locally without checking
+network freshness. CI downloads the current official channels. Shared targets
+live in `scripts/engine-targets.json`.
 
-The runner discovers `data/core` and `data/base` in standard macOS app-bundle and
-Linux/Windows archive layouts relative to the resolved executable. For a custom
-installation, pass `--data-dir /absolute/path/to/data` to the Python runner.
+The runner builds the production ZIP and uses isolated temporary mods, config,
+write-data and save directories. First, a bootstrap companion creates a world
+with existing inserters and green science researched, without the production mod.
+It then disables that companion and installs the packaged production mod plus
+the gameplay validation companion into the existing save. Bundled optional mods, including recycler,
+are explicitly disabled for the normal-quality red/green scope. It never installs
+into the player's normal directories. Each engine command has a 120-second timeout
+(`--timeout SECONDS`). Missing tools, timeouts, nonzero exits, engine errors and
+missing completion markers fail.
 
-The runner builds the production ZIP, copies it and this companion mod into an
-isolated temporary mod directory, creates an isolated save with `--create`, then
-runs 660 benchmark ticks. It uses a temporary config and write-data directory,
-never the player's configuration, mods or saves. Temporary files are deleted;
-`build/test-results/{version,create,benchmark}.log` and `runtime.json` remain
-available for diagnosis; CI also records the downloaded archive SHA-256.
-`runtime.json` records target, actual engine version/build output, mod version and
-fixture seed. A recorded digest identifies the archive; it is not an independent
-upstream digest verification.
-Nonzero exits, logged errors, timeouts, a mismatched engine version, and a missing
-or duplicate exact final `SCIENCE_VALIDATION_FINAL PASS` marker all fail.
+The runner discovers `data/core` and `data/base` relative to standard macOS app and
+Linux/Windows archive executable layouts. Supply `--data-dir PATH` for a custom
+installation. The fixture uses fixed seed 12345.
 
-The companion imports production `shared/wear` and `shared/composition`. Its own
-Tool prototype is test-only. A real powered ordinary inserter transfers one Tool
-from a real chest to real belts on a surface with fixed map seed 12345. Every tick checks conservation of one item,
-encoded health and independent durability, and the final assertion requires both
-hand and belt observations. It runs production data/control loading but does not
-implement or prove production pickup wear: production has no pickup events yet.
-It does not prove blocked delivery, reload continuity, lab credit, mixture output,
-other inserters, multiplayer behavior or compatibility. Historical probes remain
-separate feasibility evidence. Only `mod/` and root `LICENSE` ship to players.
+The companion creates actual production mixers, inserters and a native beaker lab.
+It checks all three recipe-free mixtures, immediate start and exact 60-tick
+processing, late-arrival sampling, blocked output, connected circuit pause/resume,
+unpowered behavior, pickup costs and ten/eleven wear boundaries. Real belts preserve
+wear between two distinct pickups. Other checks cover persistent blocked holding,
+wrong mixtures, native research timing, research switches and independent credit
+in two same-force labs. Mining checks cover unfinished materials, held beakers,
+failed full-inventory scripted mining and fractional stored credit recovery/rebuilding.
+Destruction checks conserve pending and buffered materials. Bootstrap assertions
+check existing inserters take wear and already-researched green science unlocks
+the new recipes.
+It creates test-only research prototypes to keep assertions bounded; it does not
+reimplement mixing, wear or research progress.
+
+The first owned process runs to tick 121 and serializes a checkpoint at tick 120,
+with a mixer midcraft, an inserter holding a worn beaker and a paused lab holding
+fractional native credit. A second process loads that saved state and runs 1,100 benchmark ticks, requiring
+the final assertion at tick 1,200. The fixture
+requires checkpoint/resume assertions and exactly one final
+`SCIENCE_VALIDATION_FINAL PASS` engine marker. Calling `on_load` directly is not
+used as a substitute for reload.
+
+Temporary state is deleted. Logs remain in `build/test-results/`:
+`version.log`, `create.log`, `checkpoint.log`, `benchmark.log` and `runtime.json`.
+Runtime metadata records actual engine/build output, target, mod version and seed.
+CI also preserves the downloaded archive SHA-256; this identifies the archive,
+not independently verified upstream authenticity.
+
+These checks establish bounded production behavior on the actual recorded engine.
+They do not drive player or robot mining events through a graphical client; those
+post-success event subscriptions are verified by code review. They also do not
+establish graphical usability, multiplayer performance, Space Age,
+quality or overhaul compatibility. The manual installed-ZIP starter-layout
+playtest remains outstanding. Development showcase sources and generated saves
+are excluded from the production ZIP.

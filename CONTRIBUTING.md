@@ -1,6 +1,6 @@
 # Contributing
 
-Science, Handle With Care is a Factorio mod foundation, not a playable release.
+Science, Handle With Care is an early Factorio red/green prototype, not a published release.
 Contributions, forks and adaptations are welcome under the [MIT license](LICENSE).
 Contributions are supplied under that same license; no CLA is required.
 
@@ -31,7 +31,7 @@ legacy aliases or save migrations solely to preserve earlier development version
 5. Open a focused pull request explaining the player-visible result and evidence.
 
 Install the local pre-commit hook with `.venv/bin/pre-commit install` after setting
-up the development tools. It runs the foundation tests and lint before commits;
+up the development tools. It runs the local tests and lint before commits;
 see [the testing guide](docs/testing.md) for setup and manual execution.
 
 Use two spaces in Lua, four in Python, UTF-8 and LF endings. StyLua and Ruff

@@ -11,17 +11,17 @@ inserter throughput, while stacking can average individual wear. Evaluate batchi
 racks, hand capacity and belt-stack height without losing the handling challenge.
 Denatured science stacking is already allowed.
 
-## Q02 — Lab admission and buffering
+## Q02 — Lab buffering and usability
 
-Resolve during the research slice. A player places one visible lab; it may buffer
-beakers after valid admission, and continuous research is desirable. What capacity
-and admission mechanism meet that goal? There is no selected gated-shell design.
+The prototype uses one persistent native lab, with native input slots and stored
+credit. Wrong mixtures may wait unused until matching research consumes them, or
+the player removes them. No gate or hidden worker is required. Native inventory
+filters cannot enforce current-research admission, which is unnecessary under the
+accepted buffering rule.
 
-Test research changes, wrong mixtures, simultaneous and manual insertion, modules,
-power, circuits, mining and reload. Health may round downward inside the lab once
-committed to consumption. Native worker credit must survive; an empty inventory or
-force-wide research progress cannot establish whether that worker has credit left.
-The buffering direction still needs production implementation and engine evidence.
+Playtest whether the native buffer and status are understandable. Broader circuit,
+module and quality policies remain open; preserve per-lab credit when extending
+these behaviors.
 
 ## Q03 — Every-subset prototype scale
 
@@ -31,8 +31,8 @@ usability. Compatibility changes must preserve every supported subset.
 
 ## Q04 — Wear tuning and tracking edge cases
 
-Resolve during handling playtests and before release. Starting costs are ordinary,
-burner and long-handed 1, fast 2, bulk and stack 4. The proposed safe budget is ten.
+Resolve during handling playtests and before release. Initial costs are ordinary and burner 1, long-handed and fast 2, bulk and stack 4.
+The initial safe budget is ten.
 Are these costs legible and challenging? Define modded-inserter costs and verify
 partial hand additions, filter changes, mining/rotation, quality speeds and
 simultaneous pickups. Blocked holding must never repeat the pickup charge.
@@ -62,16 +62,21 @@ unlock recovery, 1,000 waste per returned science and a waste stack size of 1,00
 Confirm eligibility, randomness and costs through playtesting. Disposal must be
 available before recovery to avoid progression deadlocks.
 
-## Q09 — Mixer start, timing and blocked states
+## Q09 — Mixer tuning
 
-Define before mixer implementation. Crafting-start input sampling and consumption
-of one pack per present type are settled; same-tick delivery is not required.
-Choose the start trigger, processing time, energy and output-blocking behavior.
+The prototype starts immediately when an idle enabled mixer has any supported
+ingredient. There is no collection window. It consumes one pack of each type
+present; later arrivals belong to later crafts. Players synchronize delivery or
+use circuit disable while loading.
 
-Prefer at most one input pack per type if feasible; raw-pack buffering is an allowed
-fallback. Determine capacity, duplicate handling and intake during output blockage.
-Preserve items and every nonempty subset. Boundary and blockage tests must prove
-that deliveries after crafting starts cannot change its mixture.
+Initial technical defaults are 60 powered ticks, 90 kW plus 3 kW drain, two native
+raw-pack input slots (up to 400 packs total, either type in either slot) and one
+output slot per mixture. A completed craft waits when
+its output slot is blocked; at most one craft is pending. Native input stacks are
+the practical buffering fallback rather than a one-pack-per-type limit.
+
+Playtest whether these capacities, timing and status produce a useful logistics
+challenge. A tighter intake would need a concrete engine-supported implementation.
 
 ## Q10 — Circuits, compatibility and performance
 

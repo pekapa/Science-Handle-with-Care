@@ -1,7 +1,8 @@
 # Project architecture
 
-The first milestone is a playable red/green logistics experiment. The repository
-currently provides a foundation, not the production gameplay loop. Stable and
+The first milestone is an installable red/green logistics experiment. Production
+mixing, handling and native research are implemented; a graphical manual playtest
+remains outstanding. Stable and
 experimental Factorio builds are intended validation targets; exact builds belong
 in configurable test targets. Keep dependencies small: Lua for the mod and Python's
 standard library for test orchestration and packaging.
@@ -13,9 +14,9 @@ standard library for test orchestration and packaging.
 | `mod/data.lua` | Register prototypes; delegate to `mod/prototypes/` when needed |
 | `mod/control.lua` | Register events and route them to runtime features |
 | `mod/shared/` | Pure rules shared by stages; no Factorio globals or mutable global state |
-| `mod/runtime/` | Future mixer, pickup, lab and lifecycle behavior |
-| `mod/prototypes/` | Future generated items, machines, recipes and technologies |
-| `mod/locale/en/` | Future player-facing names, descriptions and status messages |
+| `mod/runtime/` | Mixer, pickup and lifecycle behavior |
+| `mod/prototypes/` | Items, machines and recipes |
+| `mod/locale/en/` | Player-facing names, descriptions and status messages |
 | `tests/unit/` | Executable specifications of pure rules |
 | `tests/integration/` | Test-only Factorio fixtures and engine assertions |
 | `scripts/` | Validation, isolated engine runner and distribution tooling |
@@ -40,10 +41,15 @@ output. Later deliveries do not alter that craft. Every nonempty supported subse
 must exist, including unused mixtures. Keep subset generation separate from the
 combinations research can consume, and identifiers stable across load ordering.
 
-Prefer one input pack per type if feasible; raw-input buffering is an allowed
-fallback. Start trigger, capacities and blocked-output behavior need validation
-before implementation is considered complete. This is a design requirement, not a
-claim that buffering or the mixer has been demonstrated.
+The mixer is a fixed-recipe assembling-machine shell with native separate input
+and output inventories. The internal recipe supplies inventory filters only;
+native crafting is disabled, and runtime owns sampling and processing. Never set
+native `crafting_progress`: the engine would refund the intake recipe on mining,
+duplicating script-owned materials. Two input slots allow up to 400 raw packs total,
+with either type able to occupy both, as the practical buffering fallback. Output has one filtered slot per mixture.
+One additional craft may wait for its mixture's blocked slot; no further inputs
+are consumed until that output fits. Processing costs 60 powered ticks, 90 kW plus
+3 kW drain, and circuit disable pauses it. These are initial prototype defaults.
 
 Use `storage` for serializable persistent state; local tables are caches only.
 Rebuild local references in `on_load` without mutating game state. Handle entity
@@ -58,11 +64,15 @@ Pickup tracking must charge once even when delivery is blocked or a save is relo
 
 ## Lab boundary
 
-Expose one visible placed lab. Preserve native research, quantities, timing and
-per-worker stored credit. Admit beakers valid for research, with buffering allowed
-after admission; do not impose a global single-beaker limit. Continuous research
-is a design goal. The admission mechanism and buffer capacity remain unproven.
-There is no selected gated-shell or hidden-worker architecture.
+Expose one persistent native lab. Its input allowlist includes ordinary science
+and all three beakers. Wrong mixtures can wait removable and unconsumed; native
+technology ingredients decide which item is consumed. No intake gate or hidden
+worker is used. The prototype retains native lab slots, power and modules.
+
+The final data stage converts only technologies using equal quantities of exactly
+red and green science to combined beakers. Unit count and time are retained.
+Single-science and later combinations remain conventional. Mixer and lab recipes
+unlock with the existing green-science technology.
 
 Beakers committed to consumption inside the lab may round downward in health.
 Outside the lab, individual wear must survive transport and cannot be averaged
@@ -70,9 +80,12 @@ away. An empty input inventory does not prove a worker has no science credit;
 force-wide research progress cannot substitute for its own stored credit. Preserve
 items and credit on research changes, power interruption, removal and reload.
 
-Validate the simplest lab implementation against these requirements before adding
-technical entities. Any additional entities must have a defined shared lifecycle,
-GUI, circuit, module and energy policy, with no orphaning, duplication or silent loss.
+On removal, recover stored native credit as a partially used Tool, independently
+of physical input inventory. Keep its fractional durability. Native stored credit
+does not retain health, so recovered beaker credit receives the conservative
+maximum surviving wear of ten, rather than refreshing its handling allowance; force-wide progress
+cannot represent that local balance. Any future technical entities need a defined
+shared lifecycle, with no orphaning, duplication or silent loss.
 
 ## First playable slices
 
