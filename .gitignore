@@ -1,0 +1,10 @@
+# Private feasibility research; maintained regressions belong in tests/
+/probe/
+
+# Generated distributions and interpreter caches
+build/
+__pycache__/
+*.pyc
+.DS_Store
+.venv/
+.ruff_cache/

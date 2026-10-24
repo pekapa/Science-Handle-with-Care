@@ -1,0 +1,10 @@
+repos:
+  - repo: local
+    hooks:
+      - id: foundation-checks
+        name: Foundation tests and lint
+        language: system
+        entry: sh -c 'PATH="$PWD/.venv/bin:$PATH" exec make test lint'
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
