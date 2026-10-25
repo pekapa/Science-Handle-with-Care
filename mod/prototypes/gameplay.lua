@@ -38,6 +38,7 @@ local mixer = table.deepcopy(data.raw["assembling-machine"]["assembling-machine-
 mixer.name = "shwc-mixer"
 mixer.minable.result = mixer.name
 mixer.fixed_recipe = "shwc-intake"
+mixer.show_recipe_icon = false
 -- Runtime owns the ingredients, including the refund when this machine is mined.
 mixer.return_ingredients_on_change = false
 mixer.crafting_categories = { "shwc-intake" }

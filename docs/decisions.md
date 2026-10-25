@@ -37,8 +37,11 @@ implementation choices and tuning. It is not a development history.
 - **Lab health rounding is acceptable after admission.** Transport must preserve
   individual wear; admitted beakers are committed to research consumption.
 - **Machine interfaces use real inventories.** Hide internal recipe/filter details
-  behind a custom interface bound to native inventory slots. Mixer progress reads
-  actual `crafting_progress`; it must follow powered processing and blockage.
+  behind a familiar two-panel interface: character inventory on the left and
+  machine preview, slots and controls on the right. Generic machine slot buttons
+  move actual stacks through native inventory APIs; they expose no filter or bar
+  controls. Mixer progress reads actual `crafting_progress`; it must follow powered
+  processing and blockage.
 - **Installable first playable:** limited normal-quality base-game red/green
   functionality belongs in the mod. Development scenarios do not ship.
 - **Megabase batching and racks are deferred** until the basic gameplay loop works.

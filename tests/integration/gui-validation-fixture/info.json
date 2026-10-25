@@ -1,0 +1,8 @@
+{
+  "name": "science-gui-validation-fixture",
+  "version": "0.1.0",
+  "title": "Science GUI validation fixture (test only)",
+  "author": "Science, Handle With Care contributors",
+  "factorio_version": "2.1",
+  "dependencies": ["base >= 2.1", "science-handle-with-care"]
+}

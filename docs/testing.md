@@ -113,7 +113,7 @@ they must not reimplement the behavior under test and claim production coverage.
 | Pickup and stalled delivery | One wear charge per pickup; hundreds of held ticks add no charges; next pickup charges again |
 | Wear failure | Nine survives at 10% health, ten converts; count conserved; waste stacks and has no further wear |
 | Single-slot lab admission | Exactly one physical input slot; wrong science blocks until removed; matching science becomes credit; worker physical science input stays empty |
-| Machine interface | Native inventory widgets preserve stack metadata, cursor and shift-transfer behavior; mixer progress follows the actual powered craft |
+| Machine interface | Real player opening builds character/machine panels and generic slots; production transfer actions preserve stack metadata and respect input, output and module restrictions; mixer progress follows the actual powered craft; graphical checks cover appearance and genuine mouse interactions |
 | Native research | Expected count/time; local cached credit consumed once; another same-force lab cannot corrupt this lab's stored credit |
 | Persistence and power | Actual save/reload mid-hand and mid-credit; no double charge/lost credit; unpowered worker retains credit |
 | Lifecycle | Mining/rebuild preserves raw and mixed fractional credit in Lab item tags, input and modules; research changes/removal do not orphan workers or duplicate credit |

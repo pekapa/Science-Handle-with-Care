@@ -75,3 +75,49 @@ See [architecture](../../docs/architecture.md) for scripted-removal limits and
 [the manual checklist](../../docs/manual-playtest.md) for client verification.
 Space Age, quality, overhauls and multiplayer performance remain outside this scope.
 Fixtures, showcase sources and generated saves are excluded from the production ZIP.
+
+## Optional real-player GUI regression
+
+Use a disposable test save that already contains a connected character/player:
+
+```sh
+python3 scripts/gui_runner.py --factorio /absolute/path/to/factorio \
+  --target 2.1.23 --player-save /absolute/path/to/isolated-player-save.zip
+```
+
+`FACTORIO_BIN`, `FACTORIO_TARGET`, `--data-dir` and `--timeout` work as in the
+engine runner. This optional test does not run in the default headless suite:
+creating a player with the script API does not supply the real player needed by
+native GUI events. Make the seed in a separate test profile, with room beside
+the character for a mixer and Lab. Never supply a personal save or normal profile.
+No save or proprietary binary is committed or distributed.
+
+The runner builds the current production ZIP and copies the seed into temporary
+isolated configuration/mod/write-data directories. Only the copy's scenario
+`control.lua` is replaced by `gui-validation-fixture/control.lua`; production code
+is unmodified. It enables base and the production mod, disables bundled optional
+mods, and runs 60 updates. The supplied save is read only; its SHA-256 is checked
+again afterward. The fixture intentionally changes the copied player's inventory.
+
+Assigning the actual mixer/Lab to `player.opened` generates genuine native open
+events. Assertions inspect the actual production window: horizontal character and
+machine panels, native player-inventory binding, preview, separate electricity and
+craft bars, two/three mixer slots, one Lab input, two real worker module slots,
+generic empty slots, displayed worn-beaker health, timed crafting refresh, close,
+switch/reopen and out-of-reach cleanup. Slot identity is checked with actual item
+contents; the fixture does not reproduce the GUI implementation.
+
+The same fixture calls the production transfer helper used by GUI handlers with
+real player, cursor and machine inventories. It checks left/right take/place,
+merge/swap, worn nonstacking beakers and tagged items, module restrictions,
+extraction-only outputs, shift/control transfer counts and conservation when the
+player inventory is full. These are production action/API checks; they do not
+claim physical mouse clicks, GUI event routing or visual usability. Those still
+need the [manual checklist](../../docs/manual-playtest.md).
+
+`build/gui-test-results/` retains `version.log`, `runtime.json` (including the seed
+save hash), `benchmark.log`, and `screenshots.json`. Exact engine target matching,
+nonzero exits, errors, timeouts and a missing/duplicate `SCIENCE_GUI_FINAL PASS`
+all fail. The scenario requests genuine GUI screenshots, but benchmark mode may
+skip rendering; only files actually produced are retained. An empty screenshot
+list establishes no visual evidence.

@@ -54,10 +54,16 @@ both. Three output slots accept ordinary red, ordinary green and combined beaker
 A completed blocked craft waits without consuming additional ingredients.
 Processing costs 90 kW plus 3 kW drain; circuit disable pauses it.
 
-The custom machine interface binds directly to real native inventory slots and
-reads native progress. Internal recipe controls and typed filter ghosts are hidden
-from that interface. Inventory movement must keep Factorio's native semantics;
-GUI code must not simulate transfers with copied stacks.
+The custom machine interface places the native character inventory on the left
+and a compact machine panel on the right, with an entity preview, actual status,
+crafting or research progress and a separate electricity bar. Machine slot buttons
+read the actual input, output and worker module inventories, showing generic empty
+slots without internal recipe controls, typed filter ghosts or inventory bar controls.
+They display stack counts, quality, a slim mixed-beaker health bar and a tooltip
+with health and remaining durability.
+Cursor movement uses native stack swaps/transfers and modifier transfers use the
+player's native stack-transfer API; GUI code never constructs copied stacks.
+Output slots allow extraction only. The character inventory retains native controls.
 
 Use `storage` for serializable persistent state; local tables are caches only.
 Rebuild local references in `on_load` without mutating game state. Handle entity

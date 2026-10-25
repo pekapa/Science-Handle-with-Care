@@ -1,3 +1,6 @@
+local mixtures = require("shared.mixtures")
+local transfer = require("runtime.inventory_transfer")
+
 local gui = {}
 local frame_name = "shwc-machine"
 
@@ -24,18 +27,71 @@ local function worker_for(entity)
   return state and state.worker
 end
 
-local function inventory_widget(parent, name, inventory, columns, caption)
-  local flow = parent.add({ type = "flow", direction = "vertical" })
-  flow.add({ type = "label", caption = { "shwc-gui." .. caption } })
-  local widget = flow.add({
-    type = "inventory",
-    name = name,
-    slots_per_row = columns,
-    empty_slot_info = { caption = { "shwc-gui.empty-slot" } },
-    handle_cursor_transfer = true,
-    handle_cursor_split = true,
-  })
-  widget.inventory = inventory
+local function machine_inventory(entity, role)
+  if role == "modules" then
+    return worker_for(entity).get_module_inventory()
+  end
+  local index = entity.name == "shwc-mixer"
+      and (role == "output" and defines.inventory.crafter_output or defines.inventory.crafter_input)
+    or defines.inventory.chest
+  return entity.get_inventory(index)
+end
+
+local function slot_group(parent, entity, role)
+  local group = parent.add({ type = "flow", name = role, direction = "vertical" })
+  group.add({ type = "label", caption = { "shwc-gui." .. role } })
+  local slots = group.add({ type = "flow", name = "slots" })
+  slots.style.horizontal_spacing = 0
+  for index = 1, #machine_inventory(entity, role) do
+    local cell = slots.add({ type = "flow", name = "slot-" .. index, direction = "vertical" })
+    cell.style.width = 40
+    cell.style.height = 44
+    cell.style.vertical_spacing = 0
+    cell.add({
+      type = "sprite-button",
+      name = "shwc-" .. role .. "-" .. index,
+      style = "slot_button",
+      tags = { role = role, slot = index },
+    })
+    local health = cell.add({ type = "progressbar", name = "health" })
+    health.style.width = 40
+    health.style.height = 4
+    health.visible = false
+  end
+end
+
+local function refresh_slots(group, inventory)
+  for index = 1, #inventory do
+    local cell = group.slots.children[index]
+    local button = cell.children[1]
+    local stack = inventory[index]
+    cell.health.visible = stack.valid_for_read and mixtures.is_beaker(stack.name)
+    if cell.health.visible then
+      cell.health.value = stack.health
+      cell.health.tooltip = { "shwc-gui.health", math.floor(stack.health * 100 + 0.5) }
+    end
+    if stack.valid_for_read then
+      button.sprite = "item/" .. stack.name
+      button.number = stack.count
+      button.quality = stack.quality
+      button.elem_tooltip = { type = "item", name = stack.name, quality = stack.quality.name }
+      if mixtures.is_beaker(stack.name) then
+        button.tooltip = {
+          "shwc-gui.beaker-state",
+          math.floor(stack.health * 100 + 0.5),
+          stack.durability,
+        }
+      else
+        button.tooltip = ""
+      end
+    else
+      button.sprite = ""
+      button.number = nil
+      button.quality = nil
+      button.elem_tooltip = nil
+      button.tooltip = { "shwc-gui.empty-slot" }
+    end
+  end
 end
 
 local function refresh(player, entity, frame)
@@ -44,7 +100,7 @@ local function refresh(player, entity, frame)
     close(player)
     return
   end
-  local body = frame.body
+  local body = frame.body.machine
   local status = entity.custom_status or worker.custom_status
   if status then
     body.status.caption = status.label
@@ -58,10 +114,9 @@ local function refresh(player, entity, frame)
   end
   local capacity = worker.electric_buffer_size or 0
   body.power.value = capacity > 0 and math.min(worker.energy / capacity, 1) or 0
-  body.power.caption = { "shwc-gui.electricity" }
   if entity.name == "shwc-mixer" then
-    body.progress.value = entity.crafting_progress
-    body.progress.caption = {
+    body.crafting.progress.value = entity.crafting_progress
+    body.crafting.progress.tooltip = {
       "shwc-gui.mixing-progress",
       math.floor(entity.crafting_progress * 100),
     }
@@ -70,6 +125,13 @@ local function refresh(player, entity, frame)
     body.research.caption = research and research.localised_name or { "shwc-gui.no-research" }
     body.progress.value = research and entity.force.research_progress or 0
     body.progress.caption = { "shwc-gui.research-progress" }
+  end
+  local slots = entity.name == "shwc-mixer" and body.crafting or body
+  refresh_slots(slots.input, machine_inventory(entity, "input"))
+  if entity.name == "shwc-mixer" then
+    refresh_slots(slots.output, machine_inventory(entity, "output"))
+  elseif body.modules then
+    refresh_slots(body.modules, machine_inventory(entity, "modules"))
   end
 end
 
@@ -97,50 +159,72 @@ function gui.opened(event)
     style = "frame_action_button",
     tooltip = { "gui.close-instruction" },
   })
-  local body = frame.add({
+  local body = frame.add({ type = "flow", name = "body", direction = "horizontal" })
+  body.style.horizontal_spacing = 12
+  body.style.vertical_align = "top"
+  local character = body.add({
     type = "frame",
-    name = "body",
+    name = "character",
     direction = "vertical",
     style = "inside_shallow_frame_with_padding",
   })
-  body.add({ type = "label", name = "status" })
-  local slots = body.add({ type = "flow" })
-  if entity.name == "shwc-mixer" then
-    inventory_widget(
-      slots,
-      "input",
-      entity.get_inventory(defines.inventory.crafter_input),
-      2,
-      "input"
-    )
-    inventory_widget(
-      slots,
-      "output",
-      entity.get_inventory(defines.inventory.crafter_output),
-      3,
-      "output"
-    )
-  else
-    inventory_widget(slots, "input", entity.get_inventory(defines.inventory.chest), 1, "input")
-    local modules = worker.get_module_inventory()
-    if modules then
-      inventory_widget(slots, "modules", modules, 2, "modules")
-    end
-    body.add({ type = "label", name = "research" })
-  end
-  local progress = body.add({
-    type = "progressbar",
-    name = "progress",
-    style = "production_progressbar",
+  character.add({ type = "label", style = "heading_2_label", caption = { "shwc-gui.inventory" } })
+  local inventory = character.add({
+    type = "inventory",
+    name = "player-inventory",
+    slots_per_row = 10,
+    handle_cursor_transfer = true,
+    handle_cursor_split = true,
   })
-  progress.style.horizontally_stretchable = true
-  local power = body.add({
+  inventory.inventory = player.get_main_inventory()
+  local machine = body.add({
+    type = "frame",
+    name = "machine",
+    direction = "vertical",
+    style = "inside_shallow_frame_with_padding",
+  })
+  machine.style.width = 400
+  machine.add({ type = "label", name = "status" })
+  local preview = machine.add({ type = "entity-preview", name = "preview" })
+  preview.entity = entity
+  preview.style.width = 368
+  preview.style.height = 120
+  if entity.name == "shwc-mixer" then
+    local crafting = machine.add({ type = "flow", name = "crafting" })
+    crafting.style.vertical_align = "center"
+    crafting.style.horizontal_spacing = 12
+    slot_group(crafting, entity, "input")
+    local progress = crafting.add({
+      type = "progressbar",
+      name = "progress",
+      style = "production_progressbar",
+    })
+    progress.style.width = 120
+    slot_group(crafting, entity, "output")
+  else
+    local research = machine.add({ type = "label", name = "research" })
+    research.style.single_line = false
+    research.style.maximal_width = 368
+    local progress = machine.add({
+      type = "progressbar",
+      name = "progress",
+      style = "production_progressbar",
+    })
+    progress.style.horizontally_stretchable = true
+    slot_group(machine, entity, "input")
+    if worker.get_module_inventory() then
+      slot_group(machine, entity, "modules")
+    end
+  end
+  machine.add({ type = "line" })
+  machine.add({ type = "label", caption = { "shwc-gui.electricity" } })
+  local power = machine.add({
     type = "progressbar",
     name = "power",
     style = "electric_satisfaction_progressbar",
   })
   power.style.horizontally_stretchable = true
-  inventory_widget(body, "player-inventory", player.get_main_inventory(), 10, "inventory")
+  power.style.height = 12
   storage.machine_guis = storage.machine_guis or {}
   storage.machine_guis[player.index] = entity
   frame.auto_center = true
@@ -159,11 +243,57 @@ function gui.closed(event)
   end
 end
 
+local function active_window(event)
+  local player = game.get_player(event.player_index)
+  local entity = storage.machine_guis and storage.machine_guis[event.player_index]
+  local frame = player and player.gui.screen[frame_name]
+  local root = event.element
+  while root and root.name ~= frame_name do
+    root = root.parent
+  end
+  if
+    not (
+      root
+      and player
+      and entity
+      and entity.valid
+      and player.opened == frame
+      and player.can_reach_entity(entity)
+    )
+  then
+    if player and root then
+      close(player)
+    end
+    return
+  end
+  local worker = worker_for(entity)
+  if not (worker and worker.valid) then
+    close(player)
+    return
+  end
+  return player, entity, frame
+end
+
 function gui.clicked(event)
   local element = event.element
-  if element and element.valid and element.name == "shwc-machine-close" then
-    close(game.get_player(event.player_index))
+  if not (element and element.valid) then
+    return
   end
+  if element.name == "shwc-machine-close" then
+    close(game.get_player(event.player_index))
+    return
+  end
+  local role, index = element.tags.role, element.tags.slot
+  if not (index and (role == "input" or role == "output" or role == "modules")) then
+    return
+  end
+  local player, entity, frame = active_window(event)
+  if not player then
+    return
+  end
+  local inventory = machine_inventory(entity, role)
+  transfer.click(player, inventory, index, event, role == "output")
+  refresh(player, entity, frame)
 end
 
 function gui.inventory_action(event)
@@ -171,19 +301,8 @@ function gui.inventory_action(event)
   if not (element and element.valid and element.type == "inventory") then
     return
   end
-  local root = element
-  while root and root.name ~= frame_name do
-    root = root.parent
-  end
-  if not root then
-    return
-  end
-  local player = game.get_player(event.player_index)
-  local entity = storage.machine_guis and storage.machine_guis[event.player_index]
-  if not (player and entity and entity.valid and player.can_reach_entity(entity)) then
-    if player then
-      close(player)
-    end
+  local player, entity, frame = active_window(event)
+  if not player then
     return
   end
   local action = event.action
@@ -193,24 +312,14 @@ function gui.inventory_action(event)
     or action == defines.inventory_actions.inventory_transfer
     or action == defines.inventory_actions.inventory_split
   then
-    local target = player
-    if element.name == "player-inventory" then
-      target = entity
-      if entity.name == "lab" and event.item and event.item.type == "module" then
-        local worker = worker_for(entity)
-        if not (worker and worker.valid) then
-          close(player)
-          return
-        end
-        target = worker.get_module_inventory()
-      end
+    local role = event.item and event.item.type == "module" and "modules" or "input"
+    local target = role == "modules" and worker_for(entity).get_module_inventory()
+      or machine_inventory(entity, "input")
+    if not target then
+      return
     end
-    player.stack_transfers({
-      source_inventory = element.inventory,
-      index = event.slot,
-      target = target,
-      transfer_type = action,
-    })
+    transfer.bulk(player, element.inventory, event.slot, target, action)
+    refresh(player, entity, frame)
   end
 end
 
