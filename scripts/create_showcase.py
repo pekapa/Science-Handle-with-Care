@@ -79,7 +79,11 @@ def main():
     ]
     (mods / "mod-list.json").write_text(json.dumps({"mods": mod_list}), encoding="utf-8")
     config = work / "config.ini"
-    config.write_text(f"[path]\nread-data={data_dir}\nwrite-data={write_data}\n", encoding="utf-8")
+    config.write_text(
+        f"[path]\nread-data={data_dir}\nwrite-data={write_data}\n"
+        "[graphics]\ncache-sprite-atlas=true\ncache-sprite-atlas-count=1\n",
+        encoding="utf-8",
+    )
     common = [str(executable), "--config", str(config), "--mod-directory", str(mods)]
     version = run(common + ["--version"], output_dir / "version.log", args.timeout)
     if CONFIG["factorio_version"] not in version:
@@ -153,14 +157,15 @@ def main():
             raise RuntimeError("Showcase save does not embed its scenario script")
     verify = run(
         common
-        + ["--benchmark", str(built_save), "--benchmark-ticks", "120", "--benchmark-runs", "1"],
+        + ["--benchmark", str(built_save), "--benchmark-ticks", "10000", "--benchmark-runs", "1"],
         output_dir / "load-validation.log",
         args.timeout,
     )
     if (
-        "Performed 120 updates" not in verify
+        "Performed 10000 updates" not in verify
         or "SCIENCE_SHOWCASE_RELOAD PASS" not in verify
         or "SCIENCE_SHOWCASE_MODS PASS" not in verify
+        or "SCIENCE_SHOWCASE_POWER PASS" not in verify
     ):
         raise RuntimeError(
             "Independent save load did not reach benchmark completion; see load-validation.log"

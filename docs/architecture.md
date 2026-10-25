@@ -33,6 +33,42 @@ together. Do not retain legacy structures or add migrations solely to support
 earlier development versions. Persistence and save/reload within the current
 version must still preserve items and research credit.
 
+## Test architecture
+
+Tests have three execution boundaries. Pure Lua specifications exercise rules
+without Factorio. Python contracts exercise packaging and runner behavior, using
+owned subprocesses or process mocks where appropriate. Engine fixtures exercise
+the packaged production mod with actual entities and inventories. Importing a
+Python test or listing suites must not launch the game; the `engine` suite is
+explicitly selected.
+
+| Component | Responsibility |
+| --- | --- |
+| `scripts/test.py` | Discover Python suites, select local or explicit engine execution, report results |
+| Python runners in `scripts/` | Stage isolated profiles/packages, own child-process lifetimes, validate completion and retain evidence |
+| `graphical_preflight.py` | Validate graphical test inputs and mod configuration; own reusable test-cache locking |
+| `graphical_support.py` | Shared save-copy, PNG integrity and source-identity utilities; no CLI or process lifecycle |
+| Fixture `control.lua` | Register engine events and delegate to the fixture lifecycle |
+| Gameplay `suite.lua` | Order scenario steps and own checkpoint, resume and final completion |
+| Gameplay `setup.lua` and `fixture_support.lua` | Initialize the test world and provide real entity/inventory operations |
+| Domain case modules | Perform named gameplay actions and assert their observable outcomes |
+
+The gameplay fixture's mixer, handling and Lab cases are cooperating workflows,
+not independently isolated unit cases. Keep their tick order explicit in the
+suite. Store references and observations in `storage.fixture`; requiring a module
+must not capture saved state or mutate the world. The Python runner serializes a
+checkpoint, stops its process, and reloads it in another process. Completion stops
+fixture tick work; disposal of the isolated Python profile owns final world
+teardown. Do not remove entities before persistence assertions finish.
+
+Keep expectations near the actions whose results they check. Extract shared
+helpers only for repeated mechanics; never reproduce production mixing, wear,
+admission or credit logic in a fixture. Small bootstrap and showcase scenarios
+can remain cohesive files. File length alone is not a reason to introduce a
+module. See the [gameplay fixture guide](../tests/integration/validation-fixture/README.md)
+and [GUI fixture guide](../tests/integration/gui-validation-fixture/README.md)
+for their concrete execution order and resource ownership.
+
 ## Prototype and runtime rules
 
 Generate mixture prototypes in the data stage. At crafting start, runtime samples
@@ -54,16 +90,27 @@ both. Three output slots accept ordinary red, ordinary green and combined beaker
 A completed blocked craft waits without consuming additional ingredients.
 Processing costs 90 kW plus 3 kW drain; circuit disable pauses it.
 
-The custom machine interface places the native character inventory on the left
-and a compact machine panel on the right, with an entity preview, actual status,
-crafting or research progress and a separate electricity bar. Machine slot buttons
-read the actual input, output and worker module inventories, showing generic empty
-slots without internal recipe controls, typed filter ghosts or inventory bar controls.
-They display stack counts, quality, a slim mixed-beaker health bar and a tooltip
-with health and remaining durability.
-Cursor movement uses native stack swaps/transfers and modifier transfers use the
-player's native stack-transfer API; GUI code never constructs copied stacks.
-Output slots allow extraction only. The character inventory retains native controls.
+Machine windows remain engine-owned: GUI code never replaces `player.opened`.
+The mixer uses its native assembler inventory, progress and power controls; the
+Lab uses a native container with one normal inventory slot, without chest bars or
+filters. Fixed internal mixer recipe/filter details may be visible; the prototype
+still prevents recipe selection. Science and player-inventory transfers use the
+native window without scripted slot buttons or a duplicate character inventory.
+
+`runtime/gui.lua` attaches a relative information panel to the open machine.
+The Lab panel reads actual worker status, power and force research, and binds an
+inventory widget directly to the worker module inventory, with an explicit empty
+module-slot sprite and localized hint. A separate row for each current research
+ingredient reads the worker's native stored durability as remaining standard-pack
+credit (all current packs have a full value of one). Its bar shows that balance,
+not a percentage of the originally admitted damaged beaker; its tooltip gives the
+actual remaining value. Research changes rebuild the ingredient rows, and no
+research clears them. Force research progress remains a separate display. The widget enables
+native cursor transfer/split; its modifier actions call `player.stack_transfers`
+with the real worker source and player main inventory destination. No stack copies
+are constructed. The supplemental health/durability label reads the Lab intake or
+mixed mixer output. Refreshes inspect only tracked open panels, removing them on
+close, invalid entity/worker, disconnection or loss of reach.
 
 Use `storage` for serializable persistent state; local tables are caches only.
 Rebuild local references in `on_load` without mutating game state. Handle entity

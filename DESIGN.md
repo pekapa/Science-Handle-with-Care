@@ -75,6 +75,13 @@ in the mined Lab item's tags; rebuilding restores it. Ordinary science packs are
 Items, not Tools, so fractional ordinary credit cannot be represented by a partially
 used pack. Preserve physical inputs and modules separately from this stored credit.
 
+Keep the native assembler window for the mixer and native one-slot container
+window for the Lab. Internal fixed mixer recipe/filter details may remain visible;
+players cannot select a recipe. A relative Lab panel exposes the hidden worker's
+status, power, research and real module inventory. Native windows own science
+transfers and mixer progress. Supplemental labels show beaker health and durability.
+Graphical layout and actual client input still require verification.
+
 Circuit support should expose mixer contents and state, and original science
 requirements after technologies consume combined beakers. Wrong or unused mixes
 must remain removable rather than disappearing on a research change.

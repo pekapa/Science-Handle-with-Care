@@ -36,12 +36,12 @@ implementation choices and tuning. It is not a development history.
   research keeps ordinary packs; equal-quantity red+green research uses beakers.
 - **Lab health rounding is acceptable after admission.** Transport must preserve
   individual wear; admitted beakers are committed to research consumption.
-- **Machine interfaces use real inventories.** Hide internal recipe/filter details
-  behind a familiar two-panel interface: character inventory on the left and
-  machine preview, slots and controls on the right. Generic machine slot buttons
-  move actual stacks through native inventory APIs; they expose no filter or bar
-  controls. Mixer progress reads actual `crafting_progress`; it must follow powered
-  processing and blockage.
+- **Preserve native machine windows and inventory operations.** The mixer keeps
+  its assembler window and the Lab keeps its one-slot container window. Fixed
+  internal recipe and filter details may remain visible; players still cannot
+  select a mixer recipe. A relative panel exposes the hidden worker's status,
+  power, research and real module inventory. Native windows own science transfers
+  and mixer progress; supplemental labels show mixed-beaker health and durability.
 - **Installable first playable:** limited normal-quality base-game red/green
   functionality belongs in the mod. Development scenarios do not ship.
 - **Megabase batching and racks are deferred** until the basic gameplay loop works.

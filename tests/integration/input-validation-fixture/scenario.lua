@@ -1,0 +1,1 @@
+-- Inert replacement for the copied seed's scenario; the companion owns the test.

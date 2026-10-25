@@ -8,7 +8,7 @@ green science. The ordinary Lab retains early availability and gains one physica
 science slot. Wrong science blocks that slot; matching science becomes native
 credit, and mining stores remaining credit on the Lab item.
 
-The revised lab and custom machine interfaces are under validation. Basic setup
+The revised Lab and native machine windows are under validation. Basic setup
 and the transport line have received manual inspection; the revised interface
 still needs a graphical playtest of the installed ZIP.
 

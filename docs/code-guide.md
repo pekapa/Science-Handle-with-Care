@@ -120,19 +120,21 @@ be returned as a partially used pack. Input and modules must also be conserved.
 
 ### Follow the machine window
 
-Read [runtime/gui.lua](../mod/runtime/gui.lua). Its inventory widgets bind to the
-real mixer input/output, Lab intake, worker modules and player inventory. Native
-cursor interaction and stack transfers preserve the actual stack metadata.
-The window hides internal recipes and typed filter ghosts; it does not invent a
-second inventory or copy counts to imitate a transfer.
+Read [runtime/gui.lua](../mod/runtime/gui.lua). It leaves the native mixer and
+Lab container windows open, with engine-owned science and player inventories.
+Its relative Lab panel binds a native inventory widget to the actual hidden
+worker modules. Native cursor handling and the production modifier handler's
+`player.stack_transfers` preserve actual stacks instead of constructing copies.
+The panel also reads worker status, power and research; small labels expose mixed
+beaker health and remaining durability. Internal mixer recipe/filter details can
+remain visible; recipe selection stays disabled.
 
-Mixer progress reads the entity's `crafting_progress`, which the mixing runtime
-updates for the 60-powered-tick cycle. Look at the mixer prototype's
-`return_ingredients_on_change = false` too: it prevents the native shell from
-refunding its internal recipe on mining. Runtime alone returns committed inputs.
-Window refreshes only inspect players with open machine windows. Graphical layout,
-ghost suppression and click/shift interactions need the manual checks described
-in [manual-playtest.md](manual-playtest.md).
+Mixer progress is the entity's native `crafting_progress`, which the mixing
+runtime updates for the 60-powered-tick cycle. The prototype's
+`return_ingredients_on_change = false` prevents the native shell from refunding its
+internal recipe on mining. Runtime alone returns committed inputs. Panel refreshes
+inspect only players with tracked open windows. Graphical layout and actual
+mouse/keyboard interactions need the checks in [manual-playtest.md](manual-playtest.md).
 
 ## 7. Read the tests as worked examples
 

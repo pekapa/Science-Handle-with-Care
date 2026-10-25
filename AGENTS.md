@@ -54,6 +54,10 @@ into maintained tests that exercise production code.
 - Prefer readable, small changes. No speculative framework, broad rewrite,
   unrelated formatting or dependency without a concrete need.
 - Player-facing text belongs in locale files once gameplay is implemented.
+- Prefer Factorio's existing windows, widgets, styles and inventory operations.
+  Before replacing native UI, establish the specific API limitation and reuse all
+  supported parts. Preserve default machine layout and interactions; do not treat
+  familiar base-game behavior as an invitation to redesign it.
 
 ## Tests and verification
 
@@ -63,10 +67,21 @@ into maintained tests that exercise production code.
   continuity. Do not substitute empty mocks for Factorio inventories or entities.
 - Pure unit tests cover pure rules. Real engine scenarios cover Factorio behavior.
   A test-only fixture must exercise production code when claiming mod correctness.
+- GUI changes need evidence at the changed boundary: real production window
+  construction, production transfer actions, genuine client input, and rendered
+  appearance are distinct checks. Inventory or helper tests do not prove that a
+  window opens, a mouse event reaches its handler, or the layout looks correct.
+- Reproduce GUI regressions through the real engine when feasible. Inspect a
+  rendered capture for layout changes and exercise actual client input for input
+  changes. If a required check cannot run, report that layer as unverified rather
+  than describing the interface as verified or complete.
 - Follow `docs/testing.md` commands. Missing tools, timeouts, engine errors and
   missing completion assertions are failures, never a reported pass.
 - Report exact checks run and any checks not run. Do not add coverage quotas or
   tests that only repeat the implementation.
+- Identify the tested package/revision and each suite run, including optional GUI
+  checks. A default test-suite pass is not evidence that omitted suites passed;
+  absent screenshots or a missing graphical client are not successful GUI checks.
 - Use isolated configuration/mod/save/output directories. Never change or install
   into the player's normal game, touch personal saves, or terminate their game.
 

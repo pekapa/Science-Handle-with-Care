@@ -98,7 +98,7 @@ local function setup()
   for _, position in ipairs({ { -2, -2 }, { -2, 2 }, { 2, -2 }, { 5, -2 } }) do
     place(surface, "small-electric-pole", position, force)
   end
-  for _, position in ipairs({ { -4, -5 }, { 0, -5 }, { 4, -5 } }) do
+  for _, position in ipairs({ { -4, -5 }, { 0, -5 }, { 4, -5 }, { 8, -5 } }) do
     place(surface, "solar-panel", position, force)
   end
   assert(red.insert({ name = "automation-science-pack", count = 80 }) == 80)
@@ -108,12 +108,35 @@ end
 
 script.on_init(setup)
 script.on_event(defines.events.on_player_created, setup_player)
-script.on_nth_tick(30, function(event)
+script.on_event(defines.events.on_tick, function(event)
   local state = storage.showcase
   if state.player_joined then
     return
   end
+  if event.tick >= 300 then
+    if not state.worker then
+      state.worker = state.lab.surface.find_entities_filtered({
+        name = "shwc-lab-worker",
+        position = state.lab.position,
+        radius = 0.1,
+      })[1]
+    end
+    local worker = state.worker
+    assert(worker and worker.valid, "showcase native lab worker missing")
+    assert(worker.status ~= defines.entity_status.low_power, "showcase native lab has low power")
+    -- The unmoduled native lab needs 60 kW: 1,000 J for each research tick.
+    assert(worker.energy >= 1000, "showcase native lab lacks one tick of research energy")
+    local credit = worker.get_stored_durability("shwc-beaker-red-green").durability
+    if state.previous_credit and credit > state.previous_credit + 0.1 then
+      state.credit_boundaries = (state.credit_boundaries or 0) + 1
+    end
+    state.previous_credit = credit
+  end
   if state.saved_tick then
+    if event.tick == state.saved_tick + 10000 then
+      assert((state.credit_boundaries or 0) >= 2, "showcase did not cross two beaker boundaries")
+      log("SCIENCE_SHOWCASE_POWER PASS ticks=10000 boundaries=" .. state.credit_boundaries)
+    end
     if event.tick == state.saved_tick + 120 then
       assert(
         game.forces.player.research_progress > state.saved_progress,
@@ -125,7 +148,7 @@ script.on_nth_tick(30, function(event)
     return
   end
   local held = state.output.held_stack
-  if held.valid_for_read and held.name == "shwc-beaker-red-green" then
+  if event.tick % 30 == 0 and held.valid_for_read and held.name == "shwc-beaker-red-green" then
     assert(held.health < 1, "showcase output pickup has no wear")
     state.saw_delivery = true
   end
@@ -139,6 +162,7 @@ script.on_nth_tick(30, function(event)
     assert(game.forces.player.research_progress > 0, "showcase native research did not advance")
     state.saved_tick = event.tick
     state.saved_progress = game.forces.player.research_progress
+    state.credit_boundaries = 0
     log("SCIENCE_SHOWCASE_SETUP PASS research_progress=" .. state.saved_progress)
     game.auto_save("science-showcase")
   end

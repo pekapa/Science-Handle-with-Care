@@ -16,8 +16,8 @@ much handling ruins it.
 
 The mod is an early red/green prototype. It implements mixing, pickup wear and
 native research, with isolated engine regressions including actual save/reload.
-Basic setup and the transport line have been manually inspected. The revised
-lab and machine interfaces still need graphical manual verification; this is not
+Basic setup and the transport line have been manually inspected. The native mixer and Lab windows with relative information panels still need
+graphical manual verification; this is not
 a published release.
 Space Age, quality and overhaul compatibility are outside this demonstration.
 

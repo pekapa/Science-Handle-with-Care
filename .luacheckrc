@@ -20,3 +20,9 @@ files["tests/showcase/**/control.lua"] = {
 
 files["mod/prototypes/**"] = { read_globals = { "data" }, globals = { "table.deepcopy" } }
 files["mod/runtime/**"] = { globals = { "storage" }, read_globals = { "game", "defines" } }
+
+files["tests/integration/input-validation-fixture/control.lua"] = {
+  globals = { "storage", "game" },
+  read_globals = { "script", "defines", "prototypes", "log", "remote" },
+}
+files["tests/integration/input-validation-fixture/data.lua"] = { globals = { "data" } }

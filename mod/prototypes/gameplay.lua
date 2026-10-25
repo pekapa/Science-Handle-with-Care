@@ -77,6 +77,7 @@ local shell = {
   collision_box = table.deepcopy(base_lab.collision_box),
   selection_box = table.deepcopy(base_lab.selection_box),
   inventory_size = 1,
+  inventory_type = "normal",
   picture = table.deepcopy(base_lab.off_animation),
 }
 rawset(data.raw.lab, "lab", nil)
