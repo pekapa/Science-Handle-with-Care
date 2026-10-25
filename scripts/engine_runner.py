@@ -7,6 +7,8 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
+import zipfile
 from pathlib import Path
 
 from engine_config import CONFIG, download_url, validate_version
@@ -35,6 +37,62 @@ def validate_completion(output):
     markers = re.findall(r"Script @[^\n]*: (SCIENCE_VALIDATION_FINAL PASS)\s*$", output, re.M)
     if markers != [MARKER]:
         raise RuntimeError("Missing or duplicate exact final PASS marker; see benchmark.log")
+
+
+def run_checkpoint(common, save, checkpoint, settings, log_path, timeout):
+    """Run an owned offline server until the named checkpoint is serialized."""
+    with log_path.open("w", encoding="utf-8") as output:
+        server = subprocess.Popen(
+            common
+            + [
+                "--start-server",
+                str(save),
+                "--server-settings",
+                str(settings),
+                "--bind",
+                "127.0.0.1",
+                "--port",
+                "0",
+            ],
+            stdin=subprocess.PIPE,
+            stdout=output,
+            stderr=subprocess.STDOUT,
+        )
+        deadline = time.monotonic() + timeout
+        try:
+            while time.monotonic() < deadline:
+                if server.poll() is not None:
+                    raise RuntimeError(
+                        f"Checkpoint server exited {server.returncode}; see {log_path}"
+                    )
+                text = log_path.read_text(encoding="utf-8", errors="replace")
+                if re.search(r"\b(?:Error|ERROR)\b", text):
+                    raise RuntimeError(f"Engine logged an error; see {log_path}")
+                if (
+                    "SCIENCE_VALIDATION_CHECKPOINT PASS" in text
+                    and checkpoint.is_file()
+                    and zipfile.is_zipfile(checkpoint)
+                ):
+                    break
+                time.sleep(0.1)
+            else:
+                raise RuntimeError(f"Checkpoint save timed out; see {log_path}")
+        finally:
+            # Keep stdin open while running: EOF is an engine error in server mode.
+            if server.poll() is None:
+                server.terminate()
+                try:
+                    server.wait(timeout=20)
+                except subprocess.TimeoutExpired as error:
+                    server.kill()
+                    server.wait(timeout=20)
+                    raise RuntimeError(
+                        f"Checkpoint server shutdown timed out; see {log_path}"
+                    ) from error
+            server.stdin.close()
+    text = log_path.read_text(encoding="utf-8", errors="replace")
+    if re.search(r"\b(?:Error|ERROR)\b", text):
+        raise RuntimeError(f"Engine logged an error; see {log_path}")
 
 
 def main():
@@ -94,17 +152,39 @@ def main():
             mods / "science-validation-fixture_0.1.0",
         )
         manifest = validate_manifest()
-        (mods / "mod-list.json").write_text(
-            json.dumps(
-                {
-                    "mods": [
-                        {"name": name, "enabled": True}
-                        for name in ("base", manifest["name"], "science-validation-fixture")
-                    ]
-                }
-            ),
-            encoding="utf-8",
+        shutil.copytree(
+            ROOT / "tests/integration/bootstrap-fixture",
+            mods / "science-bootstrap-fixture_0.1.0",
         )
+
+        def select_mods(gameplay):
+            enabled = (
+                {"base", manifest["name"], "science-validation-fixture"}
+                if gameplay
+                else {"base", "science-bootstrap-fixture"}
+            )
+            (mods / "mod-list.json").write_text(
+                json.dumps(
+                    {
+                        "mods": [
+                            {"name": name, "enabled": name in enabled}
+                            for name in (
+                                "base",
+                                manifest["name"],
+                                "science-validation-fixture",
+                                "science-bootstrap-fixture",
+                                "space-age",
+                                "quality",
+                                "elevated-rails",
+                                "recycler",
+                            )
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+        select_mods(False)
         common = [binary, "--config", str(config), "--mod-directory", str(mods)]
         version = run(common + ["--version"], results / "version.log", args.timeout)
         actual = validate_version(version, args.target)
@@ -122,20 +202,51 @@ def main():
             + "\n",
             encoding="utf-8",
         )
-        run(common + ["--create", str(save)], results / "create.log", args.timeout)
+        run(
+            common + ["--create", str(save), "--map-gen-seed", "12345"],
+            results / "create.log",
+            args.timeout,
+        )
+        select_mods(True)
+        settings = isolated / "server-settings.json"
+        server_settings = json.loads(
+            (data_dir / "server-settings.example.json").read_text(encoding="utf-8")
+        )
+        server_settings.update(
+            {
+                "name": "Isolated science validation",
+                "visibility": {"public": False, "lan": False},
+                "require_user_verification": False,
+                "auto_pause": False,
+                "autosave_interval": 0,
+                "non_blocking_saving": False,
+            }
+        )
+        settings.write_text(json.dumps(server_settings), encoding="utf-8")
+        checkpoint = write_data / "saves/_autosave-science-validation-checkpoint.zip"
+        run_checkpoint(
+            common,
+            save,
+            checkpoint,
+            settings,
+            results / "checkpoint.log",
+            args.timeout,
+        )
         output = run(
             common
             + [
                 "--benchmark",
-                str(save),
+                str(checkpoint),
                 "--benchmark-ticks",
-                "660",
+                "2300",
                 "--benchmark-runs",
                 "1",
             ],
             results / "benchmark.log",
             args.timeout,
         )
+        if "SCIENCE_VALIDATION_RESUMED PASS" not in output:
+            raise RuntimeError("Missing reload assertion; see benchmark.log")
         validate_completion(output)
     print(f"Engine fixture passed; logs: {results}")
 

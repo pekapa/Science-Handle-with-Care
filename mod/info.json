@@ -4,6 +4,8 @@
   "title": "Science, Handle With Care",
   "author": "pekapa",
   "factorio_version": "2.1",
-  "dependencies": ["base >= 2.1"],
-  "description": "Project foundation for science packs with pickup-based wear. Gameplay is not implemented yet."
+  "dependencies": [
+    "base >= 2.1"
+  ],
+  "description": "Automatically mix red and green science into fragile beakers. Coordinate inserter deliveries, manage pickup wear, and research with matching mixtures in a native beaker lab."
 }

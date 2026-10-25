@@ -1,4 +1,4 @@
-"""Discover named regression cases: python3 scripts/test.py [--suite unit|package|engine|all]."""
+"""Discover named regression cases: python3 scripts/test.py [--suite SUITE]."""
 
 import argparse
 import sys
@@ -8,15 +8,18 @@ from package import ROOT
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--suite", choices=("local", "unit", "package", "engine", "all"), default="local"
+    available = tuple(
+        path.stem.removeprefix("test_") for path in sorted((ROOT / "tests").glob("test_*.py"))
     )
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--suite", choices=("local", "all", *available), default="local")
     parser.add_argument("--list", action="store_true", help="list case IDs without running tests")
     args = parser.parse_args()
-    suites = ("unit", "package") if args.suite == "local" else (args.suite,)
-    if args.suite == "all":
-        suites = ("unit", "package", "engine")
+    suites = (args.suite,)
+    if args.suite in ("local", "all"):
+        suites = tuple(name for name in available if name != "engine")
+        if args.suite == "all" and "engine" in available:
+            suites += ("engine",)
     suite = unittest.TestSuite(
         unittest.defaultTestLoader.discover(str(ROOT / "tests"), pattern=f"test_{name}.py")
         for name in suites

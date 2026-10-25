@@ -1,7 +1,9 @@
 local composition = {}
 
--- Input is a map of science item name -> positive integer quantity.
--- Callers must verify that names refer to allowed science items in the game.
+---Builds a stable, collision-free key for a science composition.
+---Callers must verify that names refer to allowed science items in the game.
+---@param ingredients table<string, integer> Science item name to positive quantity.
+---@return string
 function composition.key(ingredients)
   assert(type(ingredients) == "table", "composition must be a table")
   local names = {}

@@ -26,10 +26,14 @@ into maintained tests that exercise production code.
 - No player-selected mixer recipe. At crafting start, consume one pack of each
   science type present to determine output. Prefer minimal raw-pack buffering;
   allow buffering when needed for a practical implementation.
-- One visible placed lab. Admitted valid beakers may buffer for continuous research;
-  their health may round downward once committed to consumption. Native research
-  and stored science credit remain authoritative. Do not require a shared
-  one-physical-beaker cap or a hidden worker without a concrete need.
+- One visible placed Lab with exactly one physical science input slot. Wrong
+  science blocks that slot until removed. Matching input becomes native research
+  credit; committed health may round downward. A persistent hidden native worker
+  supplies research, power and modules because native lab inventories cannot enforce
+  the shared untyped slot. Preserve credit through mining in the Lab item tags.
+- Single-science mixer output is the same ordinary pack after 60 powered ticks.
+  Only combined science is fragile: fresh health is 100%, nine wear points leave
+  10%, and ten points denature it.
 - Wear is charged once at pickup, including blocked delivery and save/reload.
   Denatured science stacks and receives no additional wear.
 - Do not claim the foundation is playable or promise untested compatibility.
@@ -44,12 +48,23 @@ into maintained tests that exercise production code.
   the current version remains required.
 - Follow the boundaries in `docs/architecture.md`; keep entrypoints thin and pure
   rules independent of Factorio globals. Add modules only when needed.
+- Group prototypes by gameplay feature, one `mod/prototypes/<feature>.lua` per
+  feature required from `data.lua`. Precede each prototype with a one-line comment
+  saying what it is in gameplay terms.
+- Document functions with LuaLS `---` annotations: a summary plus `@param`/`@return`
+  using Factorio API type names (`LuaEntity`, `EventData.on_built_entity`). Event
+  handlers name their event types; persistent `storage` records get a `@class`.
+  Follow the conventions in `CONTRIBUTING.md`; `make lint` enforces them.
 - Persist simulation state in `storage`. Keep multiplayer behavior deterministic,
   handle invalid entities/lifecycle events, and avoid per-tick world scans.
 - Preserve items and research credit on blocked paths, removal and reload.
 - Prefer readable, small changes. No speculative framework, broad rewrite,
   unrelated formatting or dependency without a concrete need.
 - Player-facing text belongs in locale files once gameplay is implemented.
+- Prefer Factorio's existing windows, widgets, styles and inventory operations.
+  Before replacing native UI, establish the specific API limitation and reuse all
+  supported parts. Preserve default machine layout and interactions; do not treat
+  familiar base-game behavior as an invitation to redesign it.
 
 ## Tests and verification
 
@@ -59,10 +74,21 @@ into maintained tests that exercise production code.
   continuity. Do not substitute empty mocks for Factorio inventories or entities.
 - Pure unit tests cover pure rules. Real engine scenarios cover Factorio behavior.
   A test-only fixture must exercise production code when claiming mod correctness.
+- GUI changes need evidence at the changed boundary: real production window
+  construction, production transfer actions, genuine client input, and rendered
+  appearance are distinct checks. Inventory or helper tests do not prove that a
+  window opens, a mouse event reaches its handler, or the layout looks correct.
+- Reproduce GUI regressions through the real engine when feasible. Inspect a
+  rendered capture for layout changes and exercise actual client input for input
+  changes. If a required check cannot run, report that layer as unverified rather
+  than describing the interface as verified or complete.
 - Follow `docs/testing.md` commands. Missing tools, timeouts, engine errors and
   missing completion assertions are failures, never a reported pass.
 - Report exact checks run and any checks not run. Do not add coverage quotas or
   tests that only repeat the implementation.
+- Identify the tested package/revision and each suite run, including optional GUI
+  checks. A default test-suite pass is not evidence that omitted suites passed;
+  absent screenshots or a missing graphical client are not successful GUI checks.
 - Use isolated configuration/mod/save/output directories. Never change or install
   into the player's normal game, touch personal saves, or terminate their game.
 

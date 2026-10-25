@@ -1,2 +1,3 @@
--- Data-stage entrypoint. No prototypes are registered in this foundation.
--- Runtime composition discovery cannot create new data-stage prototypes.
+require("prototypes.science")
+require("prototypes.mixer")
+require("prototypes.lab")

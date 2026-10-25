@@ -1,8 +1,8 @@
 # Science, Handle With Care
 
 This is the gameplay design for a Factorio mod in development. The repository
-contains a mod foundation and isolated validation tools; the mixer, wear tracking
-and lab gameplay loop are not implemented or validated as a playable mod.
+contains an installable red/green prototype and isolated production regressions.
+A graphical manual playtest remains required before declaring the milestone complete.
 
 ## Core experience
 
@@ -12,23 +12,28 @@ The mixer has no player-selected recipe: the science types present when crafting
 starts determine the mixture. Research does not fill in missing ingredients or
 correct a player's mixture.
 
-Every nonempty subset of supported science types has a distinct beaker, including
-mixtures no technology uses. A useless mixture remains that mixture; it is not
+Every nonempty subset of supported science types is producible, including
+mixtures no technology uses. A single science type passes through as the same
+ordinary pack; combinations produce distinct fragile beakers. A useless mixture remains that mixture; it is not
 rejected or automatically denatured. A beaker retains its composition when research
 changes. Red+green does not substitute for red+green+blue.
 
 ## Mixing
 
 At crafting start, sample the input types and consume one ordinary science pack of
-each present type to define one beaker. Inputs need not arrive on the same tick;
+each present type to define one output. Inputs need not arrive on the same tick;
 only their presence at the start matters. Later arrivals cannot change an active
-craft. The start trigger, processing time and blocked-output behavior still need
-an explicit implementation policy and engine tests.
+craft. An idle, enabled mixer starts as soon as any supported science ingredient is
+available. There is no automatic collection window: players coordinate deliveries
+with inserters and circuits. The prototype processes for 60 powered ticks at
+90 kW plus 3 kW drain. A completed blocked craft waits without consuming more
+ingredients.
 
 A small intake accepting at most one pack per type is the preferred logistics
 challenge if feasible. Raw-pack buffering is an acceptable fallback; any buffered
-extras remain inputs for later crafts. Neither approach has been demonstrated in
-production gameplay. Conserve inputs and output when blocked, and expose enough
+extras remain inputs for later crafts. The prototype uses two native raw-pack
+slots, allowing up to 400 raw packs total; either type can occupy both slots.
+The native assembler intake does not provide a per-type one-pack cap. Conserve inputs and output when blocked, and expose enough
 status for players to understand when crafting will begin.
 
 ## Handling
@@ -38,34 +43,44 @@ a blocked delivery adds no further wear, including across save/reload. Belts and
 splitters add no pickup charge. Each inserter pickup, including final lab loading,
 counts; internal crafting does not itself imply a transport charge.
 
-The working balance proposal gives ordinary, burner and long-handed inserters a
-cost of 1, fast inserters 2, and bulk and stack inserters 4. Stack cost 4 is the
-current starting tuning value.
-A proposed budget allows ten agitation points and denatures a beaker above ten.
-These values need playtesting; tooltip wording should show composition and the
-remaining handling budget once gameplay exists.
+Ordinary and burner inserters cost 1 per pickup, long-handed and fast inserters
+cost 2, and bulk and stack inserters cost 4. Fresh beakers have 100% health; each
+point removes 10 percentage points. Nine points survive at 10%; ten denatures. These are the initial playable values. Tooltips
+explain costs; native item health indicates remaining handling allowance.
 
-Item health is a candidate wear representation, independent of research durability.
+The prototype encodes wear in item health, independent of research durability.
 Different-health stacks can merge with averaged health, so usable beakers must
-preserve individual wear during transport. Nonstacking items are the initial
-representation to evaluate. Bots, loaders, manual moves and modded inserters need
+preserve individual wear during transport. Usable beakers are nonstacking in the prototype. Bots, loaders, manual moves and modded inserters need
 a declared policy before release.
 
 ## Labs and research
 
-Players place one visible lab. Native research and each worker's stored science
-credit remain authoritative. A beaker must match the research composition when
-admitted. Once validly admitted, the lab may buffer beakers; there is no global
-one-physical-beaker limit across intake and research machinery. Continuous research
-is desirable, and buffer size and admission behavior need engine validation.
+Players place the ordinary Lab, available through the base recipe and early-game
+unlock. It has exactly one physical science input slot. Wrong science waits
+removable in that slot and blocks other deliveries until removed. Matching science
+is admitted as native credit. Native research and stored per-worker science credit
+remain authoritative; already admitted credit survives research changes and can
+continue research while the intake receives another item.
 
-Inside the lab, beakers are committed to consumption, so health may round downward
-there. This permission does not relax wear preservation during transport. Preserve
-native research timing, quantities, power behavior and credited science through
-research changes, removal and reload. An empty input inventory does not imply
-stored research credit is exhausted, and force-wide progress cannot identify a
-particular worker's credit. No intake shell or hidden-worker architecture is
-selected; implementation must first validate the simpler buffering direction.
+The visible lab uses a container intake and a persistent hidden native lab worker.
+The worker is necessary because native lab input filters cannot provide one shared,
+untyped physical slot. Its physical science inventory stays empty: admission adds
+native credit directly. Native machinery owns research timing, quantities, power
+and modules. Empty physical inventory does not imply exhausted credit, and force-wide
+progress cannot identify a particular worker's credit.
+
+Inside the lab, beakers are committed to consumption, so health may round downward.
+Transport must preserve individual wear. Mining stores all remaining native credit
+in the mined Lab item's tags; rebuilding restores it. Ordinary science packs are
+Items, not Tools, so fractional ordinary credit cannot be represented by a partially
+used pack. Preserve physical inputs and modules separately from this stored credit.
+
+Keep the native assembler window for the mixer and native one-slot container
+window for the Lab. Internal fixed mixer recipe/filter details may remain visible;
+players cannot select a recipe. A relative Lab panel exposes the hidden worker's
+status, power, research and real module inventory. Native windows own science
+transfers and mixer progress. Supplemental labels show beaker health and durability.
+Graphical layout and actual client input still require verification.
 
 Circuit support should expose mixer contents and state, and original science
 requirements after technologies consume combined beakers. Wrong or unused mixes
@@ -73,21 +88,25 @@ must remain removable rather than disappearing on a research change.
 
 ## Progression and waste
 
-Early conventional science and a mixing unlock before mixed-science research are
-bootstrap proposals. No extra empty-glass production chain is currently planned.
+Single-science research and mixer pass-through use ordinary science packs. The
+ordinary Lab keeps its base recipe and availability. Only the mixer unlocks
+alongside green science, with no additional technology.
+Equal-quantity red+green research uses combined beakers. No extra empty-glass
+production chain is currently planned.
 
 Denatured science stacks and receives no further wear. Give it a distinct name and
 appearance from military science. Disposal should be available before recovery so
 mistakes cannot block progression. Stack size, recovery ratio, unlock trigger and
-output selection are unresolved tuning. Candidate values are a stack size of
-1,000, recovery of one unlocked ordinary pack per 1,000 waste, and an unlock after
-5,000 processed beakers. None is settled balance.
+output selection are unresolved tuning. The prototype stacks 1,000 waste and
+provides no recovery recipe. Candidate recovery values are one unlocked ordinary
+pack per 1,000 waste, with an unlock after 5,000 processed beakers.
 
 ## Scope and technical constraints
 
-The first playable target is a normal-quality red/green demonstration with all
-three nonempty subsets. Stable and experimental Factorio compatibility are intended
-test targets, not promises; exact configured builds and validation live in
+The first playable target is an installable normal-quality red/green mod with all
+three nonempty subsets. Development showcase saves or sandbox scenarios stay
+outside the distributed mod. Stable and experimental Factorio compatibility are
+intended test targets, not promises; exact configured builds and validation live in
 [the testing guide](docs/testing.md). Space Age, quality, spoilage, overhauls and
 megabase batching require separate design and evidence.
 

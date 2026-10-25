@@ -1,0 +1,34 @@
+{
+  "$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
+  "runtime.version": "Lua 5.2",
+  "runtime.path": ["?.lua", "mod/?.lua"],
+  "runtime.builtin": {
+    "io": "disable",
+    "os": "disable",
+    "coroutine": "disable"
+  },
+  "workspace.library": ["build/luals/factorio/library"],
+  "workspace.ignoreDir": ["build", "probe", "tests", ".venv"],
+  "workspace.checkThirdParty": false,
+  "diagnostics.groupFileStatus": {
+    "ambiguity": "None",
+    "await": "None",
+    "codestyle": "None",
+    "conventions": "None",
+    "duplicate": "None",
+    "global": "None",
+    "luadoc": "Any",
+    "redefined": "None",
+    "strict": "None",
+    "strong": "None",
+    "type-check": "None",
+    "unbalanced": "None",
+    "unused": "None"
+  },
+  "diagnostics.neededFileStatus": {
+    "missing-global-doc": "Any",
+    "missing-local-export-doc": "Any",
+    "incomplete-signature-doc": "Any"
+  },
+  "diagnostics.disable": ["missing-fields"]
+}

@@ -9,6 +9,7 @@ lint:
 	ruff format --check scripts tests
 	luacheck mod tests
 	stylua --check mod tests
+	$(PYTHON) scripts/lua_docs.py
 
 format:
 	ruff check --fix scripts tests
