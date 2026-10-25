@@ -4,6 +4,32 @@ local wear = require("shared.wear")
 local labs = require("runtime.labs")
 local gameplay = {}
 
+---@class MixerState Tracked mixer in `storage.mixers`, keyed by unit number.
+---@field entity LuaEntity
+---@field output string? Item the active craft produces; nil while idle.
+---@field ingredients LuaInventory? Packs consumed by the active craft.
+---@field progress integer? Powered ticks of the active craft, up to 60.
+---@field status string? Last custom status key shown on the entity.
+---@field status_value number?
+
+---@class ArmState Tracked inserter in `storage.arms`, keyed by unit number.
+---@field entity LuaEntity
+---@field holding boolean Whether the hand held an item on the previous tick.
+
+---@alias BuiltEvent
+---| EventData.on_built_entity
+---| EventData.on_robot_built_entity
+---| EventData.script_raised_built
+---| EventData.script_raised_revive
+---| EventData.on_entity_cloned
+
+---@alias RemovedEvent
+---| EventData.on_player_mined_entity
+---| EventData.on_robot_mined_entity
+---| EventData.on_entity_died
+---| EventData.script_raised_destroy
+
+---Creates persistent tables and adopts mixers, Labs and inserters already in the save.
 function gameplay.init()
   storage.labs = {}
   storage.mixers = {}
@@ -24,6 +50,8 @@ function gameplay.init()
   end
 end
 
+---Starts tracking a newly built, revived or cloned mixer, Lab or inserter.
+---@param event BuiltEvent
 function gameplay.built(event)
   local entity = event.entity or event.created_entity or event.destination
   if not (entity and entity.valid) then
@@ -41,6 +69,9 @@ function gameplay.built(event)
   end
 end
 
+---Drops a stack on the ground at the entity, marked for pickup by robots.
+---@param entity LuaEntity
+---@param stack LuaItemStack|ItemStackDefinition
 local function spill(entity, stack)
   entity.surface.spill_item_stack({
     position = entity.position,
@@ -51,6 +82,9 @@ local function spill(entity, stack)
   })
 end
 
+---Stops tracking a mined or destroyed entity and returns the items it held,
+---including the ingredients of an unfinished mixer craft.
+---@param event RemovedEvent
 function gameplay.removed(event)
   labs.removed(event)
   local entity = event.entity
@@ -114,6 +148,8 @@ function gameplay.removed(event)
   storage.arms[entity.unit_number] = nil
 end
 
+---Charges wear once when an inserter's hand picks up a beaker.
+---@param state ArmState
 local function pickup(state)
   local entity = state.entity
   local hand = entity.held_stack
@@ -134,6 +170,11 @@ local function pickup(state)
   state.holding = holding
 end
 
+---Shows a custom status on the mixer, writing only when it changes.
+---@param state MixerState
+---@param key string Suffix of the `entity-status.shwc-*` locale key.
+---@param diode string Name in `defines.entity_status_diode`.
+---@param value number? Locale parameter, such as progress percent.
 local function status(state, key, diode, value)
   if state.status == key and state.status_value == value then
     return
@@ -145,6 +186,9 @@ local function status(state, key, diode, value)
   }
 end
 
+---Advances one mixer by a tick: samples inputs when idle, spends power while
+---mixing and delivers the output once 60 powered ticks have passed.
+---@param state MixerState
 local function mix(state)
   local entity = state.entity
   if entity.disabled_by_control_behavior or entity.to_be_deconstructed() then
@@ -212,6 +256,7 @@ local function mix(state)
   status(state, "mixing", "green", 0)
 end
 
+---Runs every tick over tracked entities only: inserter pickups, Labs, then mixers.
 function gameplay.tick()
   for id, state in pairs(storage.arms) do
     if state.entity.valid then

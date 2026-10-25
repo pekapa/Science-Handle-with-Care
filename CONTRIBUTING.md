@@ -39,6 +39,19 @@ define formatting; Luacheck and Ruff catch static issues. Keep names descriptive
 entrypoints small, and comments about intent or engine constraints. Avoid broad
 lint suppressions; justify narrow exceptions near the relevant code.
 
+Split prototypes by gameplay feature (`mod/prototypes/science.lua`, `mixer.lua`,
+`lab.lua`), each calling `data:extend` and required from `mod/data.lua`. Put a
+one-line comment before each prototype naming what it is in gameplay terms, so a
+reader knows the intent before reading its fields.
+
+Document functions with [LuaLS annotations](https://luals.github.io/wiki/annotations/):
+a `---` summary, then `---@param` and `---@return` lines. Use the Factorio API type
+names (`LuaEntity`, `LuaInventory`, `EventData.on_gui_opened`) so editors with the
+Factorio Modding Tool Kit resolve them. Event handlers state which events reach them;
+records kept in `storage` are described with `---@class`. Every top-level function
+needs at least one `---` line; a summary may be skipped when the name is
+self-explanatory. `make lint` enforces this and validates annotations with LuaLS.
+
 For engine API claims, include a matching official documentation link or an
 isolated executable regression test. A mock of an entity cannot establish its
 actual inventory, hand, lab or save/load semantics.

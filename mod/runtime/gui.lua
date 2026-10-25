@@ -3,6 +3,8 @@ local mixtures = require("shared.mixtures")
 local gui = {}
 local frame_name = "shwc-machine-info"
 
+---Removes the player's information panel and stops tracking their open machine.
+---@param player LuaPlayer
 local function close(player)
   local frame = player.gui.relative[frame_name]
   if storage.machine_guis then
@@ -13,11 +15,18 @@ local function close(player)
   end
 end
 
+---@param entity LuaEntity Lab shell.
+---@return LuaEntity? worker
 local function worker_for(entity)
   local state = storage.labs and storage.labs[entity.unit_number]
   return state and state.worker
 end
 
+---Shows one credit bar per ingredient of the current research, rebuilding rows
+---only when the ingredient list changes.
+---@param worker LuaEntity
+---@param research LuaTechnology?
+---@param container LuaGuiElement
 local function refresh_credit(worker, research, container)
   local ingredients = research and research.research_unit_ingredients or {}
   local rows = container.children
@@ -53,6 +62,10 @@ local function refresh_credit(worker, research, container)
   end
 end
 
+---Updates the panel from the machine's current state.
+---@param entity LuaEntity Mixer or Lab shell.
+---@param frame LuaGuiElement
+---@return boolean ok false when the Lab has no worker and the panel should close.
 local function refresh(entity, frame)
   local inventory
   if entity.name == "lab" then
@@ -99,6 +112,8 @@ local function refresh(entity, frame)
   return true
 end
 
+---Attaches the information panel beside the native mixer or Lab window.
+---@param event EventData.on_gui_opened
 function gui.opened(event)
   local player = game.get_player(event.player_index)
   if not player then
@@ -175,6 +190,8 @@ function gui.opened(event)
   refresh(entity, frame)
 end
 
+---Closes the panel when its machine window closes.
+---@param event EventData.on_gui_closed
 function gui.closed(event)
   local player = game.get_player(event.player_index)
   local entity = storage.machine_guis and storage.machine_guis[event.player_index]
@@ -183,6 +200,8 @@ function gui.closed(event)
   end
 end
 
+---Handles modifier clicks on the worker module slots with native stack transfers.
+---@param event EventData.on_gui_inventory_action
 function gui.inventory_action(event)
   local player = game.get_player(event.player_index)
   local entity = storage.machine_guis and storage.machine_guis[event.player_index]
@@ -219,6 +238,7 @@ function gui.inventory_action(event)
   end
 end
 
+---Refreshes open panels every 10 ticks, closing any whose machine became unreachable.
 function gui.tick()
   for index, entity in pairs(storage.machine_guis or {}) do
     local player = game.get_player(index)

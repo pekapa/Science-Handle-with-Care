@@ -31,6 +31,16 @@ Activate the environment or put `.venv/bin` on PATH before `make lint`.
 `make format` applies formatting; check its diff before submitting. Missing tools
 must fail rather than silently reducing validation.
 
+`make lint` also runs `scripts/lua_docs.py`, which needs
+[LuaLS](https://luals.github.io/) (`lua-language-server`, 3.19.2 in CI) and Node.js 22.7+.
+It fails when a top-level function under `mod/` lacks a `---` doc comment, then runs
+`lua-language-server --check` with `.luarc.json`. That check reports unknown parameter
+names, incomplete signatures and type names missing from the Factorio API. On first
+run, the script generates the API definitions into `build/luals/` from the online
+`latest` documentation, using the pinned Factorio Modding Tool Kit CLI. Delete
+`build/luals/` to regenerate them after a Factorio release. Only documentation
+diagnostics gate the build; LuaLS type-flow checks are disabled.
+
 The pre-commit hook runs `make test lint` before every commit, checking the staged
 snapshot (pre-commit temporarily stashes unstaged changes). It uses `.venv/bin`
 when present, so the installed hook does not require an activated environment.

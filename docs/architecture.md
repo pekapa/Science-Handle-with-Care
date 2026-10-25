@@ -15,7 +15,7 @@ standard library for test orchestration and packaging.
 | `mod/control.lua` | Register events and route them to runtime features |
 | `mod/shared/` | Pure rules shared by stages; no Factorio globals or mutable global state |
 | `mod/runtime/` | Mixer, pickup and lifecycle behavior |
-| `mod/prototypes/` | Items, machines and recipes |
+| `mod/prototypes/` | Items, machines and recipes, one file per feature: science, mixer, lab |
 | `mod/locale/en/` | Player-facing names, descriptions and status messages |
 | `tests/unit/` | Executable specifications of pure rules |
 | `tests/integration/` | Test-only Factorio fixtures and engine assertions |

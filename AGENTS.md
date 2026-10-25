@@ -48,6 +48,13 @@ into maintained tests that exercise production code.
   the current version remains required.
 - Follow the boundaries in `docs/architecture.md`; keep entrypoints thin and pure
   rules independent of Factorio globals. Add modules only when needed.
+- Group prototypes by gameplay feature, one `mod/prototypes/<feature>.lua` per
+  feature required from `data.lua`. Precede each prototype with a one-line comment
+  saying what it is in gameplay terms.
+- Document functions with LuaLS `---` annotations: a summary plus `@param`/`@return`
+  using Factorio API type names (`LuaEntity`, `EventData.on_built_entity`). Event
+  handlers name their event types; persistent `storage` records get a `@class`.
+  Follow the conventions in `CONTRIBUTING.md`; `make lint` enforces them.
 - Persist simulation state in `storage`. Keep multiplayer behavior deterministic,
   handle invalid entities/lifecycle events, and avoid per-tick world scans.
 - Preserve items and research credit on blocked paths, removal and reload.

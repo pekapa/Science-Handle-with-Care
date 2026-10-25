@@ -35,6 +35,22 @@ jobs:
           chmod +x "$RUNNER_TEMP/stylua-bin/stylua"
           "$RUNNER_TEMP/stylua-bin/stylua" --version
           echo "$RUNNER_TEMP/stylua-bin" >> "$GITHUB_PATH"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+      - name: Install pinned LuaLS binary
+        env:
+          LUALS_VERSION: '3.19.2'
+          LUALS_SHA256: 93ad326b10f6c00911dd8c450fa098332dbd8f9f45d1052f5636a2d54479b947
+        run: |
+          curl --fail --location --retry 2 --max-time 120 \
+            "https://github.com/LuaLS/lua-language-server/releases/download/${LUALS_VERSION}/lua-language-server-${LUALS_VERSION}-linux-x64.tar.gz" \
+            --output "$RUNNER_TEMP/luals.tar.gz"
+          echo "$LUALS_SHA256  $RUNNER_TEMP/luals.tar.gz" | sha256sum --check --strict
+          mkdir -p "$RUNNER_TEMP/luals"
+          tar -xzf "$RUNNER_TEMP/luals.tar.gz" -C "$RUNNER_TEMP/luals"
+          "$RUNNER_TEMP/luals/bin/lua-language-server" --version
+          echo "$RUNNER_TEMP/luals/bin" >> "$GITHUB_PATH"
       - run: make test lint
   targets:
     runs-on: ubuntu-latest

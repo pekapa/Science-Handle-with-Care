@@ -1,4 +1,19 @@
 local labs = {}
+
+---@class LabState Tracked Lab in `storage.labs`, keyed by the visible shell's unit number.
+---@field entity LuaEntity Visible one-slot container.
+---@field worker LuaEntity? Hidden native lab holding power, modules and credit.
+---@field paused_for_move boolean? Worker disabled until it can follow the shell.
+---@field worker_disabled boolean? Worker's own disabled state to restore after the move.
+
+---@class ScienceCredit Native lab credit for one science type, also saved in Lab item tags.
+---@field name string
+---@field durability number
+---@field quality string?
+
+---Drops a stack on the ground at the entity, marked for pickup by robots.
+---@param entity LuaEntity
+---@param stack LuaItemStack|ItemStackDefinition
 local function spill(entity, stack)
   entity.surface.spill_item_stack({
     position = entity.position,
@@ -8,6 +23,10 @@ local function spill(entity, stack)
     allow_belts = false,
   })
 end
+
+---Lists the worker's nonzero stored research credit.
+---@param worker LuaEntity
+---@return ScienceCredit[]
 local function credits(worker)
   local result = {}
   for _, name in ipairs(worker.prototype.lab_inputs) do
@@ -23,6 +42,10 @@ local function credits(worker)
   end
   return result
 end
+
+---Creates the hidden worker under a Lab shell.
+---@param entity LuaEntity Lab shell.
+---@return LuaEntity? worker nil when the engine refuses creation.
 local function create_worker(entity)
   local worker = entity.surface.create_entity({
     name = "shwc-lab-worker",
@@ -35,11 +58,17 @@ local function create_worker(entity)
   end
   return worker
 end
+
+---Toggles the disabled flag to make an idle native lab notice newly stored credit.
+---@param worker LuaEntity
 local function wake(worker)
   local disabled = worker.disabled_by_script
   worker.disabled_by_script = true
   worker.disabled_by_script = disabled
 end
+
+---Pairs a newly built Lab with a worker and restores credit from its item tags.
+---@param event BuiltEvent
 function labs.built(event)
   local entity = event.entity or event.created_entity or event.destination
   if not (entity and entity.valid) then
@@ -84,6 +113,10 @@ function labs.built(event)
     wake(worker)
   end
 end
+
+---Returns a Lab's credit (as Lab item tags), modules and input, then destroys its worker.
+---@param state LabState
+---@param event RemovedEvent|{} Empty when the shell vanished without an event.
 local function recover(state, event)
   local shell, worker = state.entity, state.worker
   local anchor = shell.valid and shell or worker
@@ -144,6 +177,9 @@ local function recover(state, event)
     end
   end
 end
+
+---Recovers a removed Lab, whether the event names its shell or its worker.
+---@param event RemovedEvent
 function labs.removed(event)
   local entity = event.entity
   if not (entity and entity.valid) then
@@ -168,6 +204,10 @@ function labs.removed(event)
     end
   end
 end
+
+---Moves the worker to its shell, replacing it when the shell changed surface.
+---@param state LabState
+---@return boolean moved false leaves the original worker and its balances intact.
 local function move_worker(state)
   local shell, worker = state.entity, state.worker
   if worker.surface == shell.surface then
@@ -199,10 +239,18 @@ local function move_worker(state)
   worker.destroy()
   return true
 end
+
+---Shows a custom status on the Lab shell.
+---@param shell LuaEntity
+---@param key string Suffix of the `entity-status.shwc-lab-*` locale key.
+---@param diode string Name in `defines.entity_status_diode`.
 local function status(shell, key, diode)
   shell.custom_status =
     { diode = defines.entity_status_diode[diode], label = { "entity-status.shwc-lab-" .. key } }
 end
+
+---Keeps each worker beside its shell and admits one matching pack from the
+---physical slot into native credit when that science type's credit runs out.
 function labs.tick()
   for id, state in pairs(storage.labs) do
     local shell, worker = state.entity, state.worker
@@ -273,4 +321,5 @@ function labs.tick()
     ::continue::
   end
 end
+
 return labs

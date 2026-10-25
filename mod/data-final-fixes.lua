@@ -1,4 +1,6 @@
 local mixtures = require("shared.mixtures")
+
+-- Research that costs equal red and green packs costs combined beakers instead.
 for _, technology in pairs(data.raw.technology) do
   local unit = technology.unit
   if unit and #unit.ingredients == 2 then
@@ -11,5 +13,7 @@ for _, technology in pairs(data.raw.technology) do
     end
   end
 end
+
+-- Logistic science unlocks the mixer recipe.
 local unlocks = data.raw.technology["logistic-science-pack"].effects
 unlocks[#unlocks + 1] = { type = "unlock-recipe", recipe = "shwc-mixer" }

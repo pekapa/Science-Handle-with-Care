@@ -30,7 +30,7 @@ the online `latest` reference can move ahead of the installed game.
 | --- | --- | --- |
 | [info.json](../mod/info.json) | Package identity, version and dependencies | The internal package name and required base version |
 | [data.lua](../mod/data.lua) | Prototype-stage entry point | Its `require` call delegates prototype creation |
-| [prototypes/gameplay.lua](../mod/prototypes/gameplay.lua) | Item, machine and recipe definitions | `table.deepcopy`, then `data:extend` |
+| [prototypes/](../mod/prototypes/) | Science items, mixer and Lab definitions, one file each | The comment above each prototype, `table.deepcopy`, then `data:extend` |
 | [data-final-fixes.lua](../mod/data-final-fixes.lua) | Adjusts technologies after definitions load | Research ingredient conversion and unlock effects |
 | [control.lua](../mod/control.lua) | Runtime entry point | Event registrations and their handler functions |
 | [runtime/gameplay.lua](../mod/runtime/gameplay.lua) | Running simulation | `init`, `built`, `tick`, `mix`, `pickup`, `removed` |
