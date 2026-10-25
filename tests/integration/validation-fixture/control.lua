@@ -195,6 +195,33 @@ script.on_init(function()
   local lab_input = state.lab.get_inventory(defines.inventory.chest)
   assert(lab_input and #lab_input == 1, "lab needs one physical generic input slot")
   assert(lab_input.insert({ name = mixtures.packs[2], count = 1 }) == 1)
+  for _, name in ipairs({ mixtures.packs[1], mixtures.beaker }) do
+    assert(lab_input.insert({ name = name, count = 1 }) == 0, "occupied Lab accepted " .. name)
+    assert(
+      lab_input[1].name == mixtures.packs[2] and lab_input[1].count == 1,
+      "competing insertion changed wrong science"
+    )
+  end
+  local blocked_force = game.create_force("blocked-lab-validation")
+  blocked_force.research_queue = { "science-validation-research" }
+  state.blocked_lab = { force = blocked_force, blocked_ticks = 0 }
+  local blocked_lab = state.blocked_lab
+  blocked_lab.shell = spawn("lab", -35, -32)
+  blocked_lab.source = spawn("wooden-chest", -38, -32)
+  blocked_lab.arm = spawn("inserter", -37, -32, defines.direction.west)
+  local blocked_pole = spawn("small-electric-pole", -36, -30)
+  local blocked_power = spawn("electric-energy-interface", -35, -27)
+  for _, entity in ipairs({
+    blocked_lab.shell,
+    blocked_lab.source,
+    blocked_lab.arm,
+    blocked_pole,
+    blocked_power,
+  }) do
+    entity.force = blocked_force
+  end
+  blocked_power.energy = 1000000000
+  assert(blocked_lab.source.insert({ name = mixtures.beaker, count = 1 }) == 1)
   state.lab_source = spawn("wooden-chest", -3, 25)
   spawn("inserter", -2, 25, defines.direction.west)
   assert(state.lab_source.insert({ name = mixtures.beaker, count = 4 }) == 4)
@@ -270,6 +297,67 @@ local function check_arm(case, expected_item, expected_wear)
       case.blocked = true
     end
   end
+end
+
+local function check_blocked_lab(case, tick)
+  if case.done then
+    return
+  end
+  local input = case.shell.get_inventory(defines.inventory.chest)
+  local native = worker(case.shell)
+  local hand = case.arm.held_stack
+  local credit = native.get_stored_durability(mixtures.beaker).durability
+  assert(
+    native.get_inventory(defines.inventory.lab_input).is_empty(),
+    "blocked Lab worker buffered"
+  )
+  if not case.released then
+    -- An already-full destination can prevent pickup; obstruct the observed real pickup.
+    if not case.obstructed and hand.valid_for_read then
+      assert(input.insert({ name = mixtures.packs[2], count = 1 }) == 1)
+      case.obstructed = true
+    end
+    if case.obstructed then
+      assert(input[1].name == mixtures.packs[2] and input[1].count == 1, "wrong science escaped")
+    else
+      assert(input.is_empty(), "Lab received beaker before observed pickup")
+    end
+    assert(credit == 0 and case.force.research_progress == 0, "blocked Lab admitted science")
+    assert(
+      case.source.get_item_count(mixtures.beaker) + (hand.valid_for_read and hand.count or 0) == 1,
+      "blocked Lab transport lost or duplicated beaker"
+    )
+    if hand.valid_for_read then
+      assert(
+        hand.name == mixtures.beaker and wear.from_health(hand.health) == 1,
+        "blocked Lab pickup wear changed"
+      )
+    end
+    if case.arm.status == defines.entity_status.waiting_for_space_in_destination then
+      assert(
+        hand.valid_for_read and case.arm.energy > 0,
+        "blocked Lab arm did not attempt delivery"
+      )
+      case.blocked_ticks = case.blocked_ticks + 1
+    else
+      case.blocked_ticks = 0
+    end
+    if case.blocked_ticks == 100 then
+      input.clear()
+      case.released = true
+      log("SCIENCE_LAB_BLOCKED PASS held=100")
+    end
+    assert(tick < 300 or case.released, "Lab arm never held blocked delivery for 100 ticks")
+  elseif credit > 0 and case.force.research_progress > 0 then
+    assert(
+      input.is_empty() and not hand.valid_for_read,
+      "released Lab did not admit delivered beaker"
+    )
+    assert(case.source.get_item_count(mixtures.beaker) == 0, "released Lab left source beaker")
+    case.done = true
+    log("SCIENCE_LAB_RELEASED PASS")
+  end
+  assert(tick < 400 or case.done, "removing wrong science did not permit delivery and research")
 end
 
 local function extended_tick(state, tick)
@@ -729,6 +817,7 @@ script.on_event(defines.events.on_tick, function(event)
     end
   end
   extended_tick(state, tick)
+  check_blocked_lab(state.blocked_lab, tick)
   robot_tick(state)
   for _, case in ipairs(state.arms) do
     if case.arm.valid then

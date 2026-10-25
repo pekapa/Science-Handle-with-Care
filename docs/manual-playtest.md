@@ -5,8 +5,16 @@ base game at normal quality. Keep personal saves and mods separate. Generate the
 starter layout with the command in [testing](testing.md), then run
 `sh build/showcase/launch.sh` from the repository root. This launcher selects the
 fresh isolated profile and its matching mod ZIP.
+Do not reuse a command pointing to `build/showcase/work/mods`: older isolated
+profiles keep their old ZIP even when `science-showcase.zip` has been regenerated.
 Close any currently running Factorio instance before using the launcher. Restart
 after replacing the ZIP so the loaded code matches the package being checked.
+
+The isolated profile has its own controls settings. To enter the editor, open
+**Settings → Controls → Toggle chat (and Lua console)** and check or rebind the
+key, then open the console and enter `/editor`. The default grave/backtick key
+can be awkward on regional keyboard layouts. See the official
+[console documentation](https://wiki.factorio.com/Console).
 
 Basic setup and the transport line have received manual inspection. This checklist
 covers the revised Lab and machine interfaces; completing automated tests does not

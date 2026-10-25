@@ -29,9 +29,13 @@ Test-only technologies keep research assertions bounded.
   later arrivals, circuits, power and blocked output are checked.
 - Real transport checks pickup costs, linear wear with nine surviving and ten
   denaturing, belt transport between distinct pickups, blocked holding and waste.
-- The Lab has one physical intake slot. Wrong science blocks it; the worker's
-  physical science inventory remains empty. Native stored credit, research timing,
-  power pauses, research switches and independent labs are observed.
+- The Lab has one physical intake slot. Competing raw and mixed science insertions
+  accept zero items while wrong science occupies it. A separate powered inserter
+  must hold a beaker at blocked delivery for 100 consecutive ticks, preserving its
+  count and pickup wear with no research admission. Removing the wrong science
+  must allow real delivery and native research by tick 400. The worker's physical
+  science inventory remains empty. Native stored credit, research timing, power
+  pauses, research switches and independent labs are observed.
 - Genuine construction robots mine and rebuild a credited Lab using the actual
   returned tagged item. No synthetic player events or manually copied ghost tags
   substitute for that roundtrip. Raw/mixed fractional credit and modules are checked.
